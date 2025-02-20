@@ -1,0 +1,13 @@
+---
+
+#    time ansible-playbook  bringup_vms.yml
+#    time ansible-playbook  bringup_vms.yml -v -e "target_vm=['kvm-a1-1-u2004-6']"
+#    time ansible-playbook  bringup_vms.yml -v -e "target_vm=['kvm-a1-2-u2204-5']"
+#    time ansible-playbook  bringup_vms.yml -v -e "target_vm=['kvm-a1-3-u2404-1']"
+#    time ansible-playbook  bringup_vms.yml -v -e "target_vm=['kvm-a1-4-u2410']"
+
+- name: Bring up VMs
+  hosts: kvm_host
+  become: true
+  roles:
+    - role_bringup_vms

@@ -1,0 +1,20 @@
+---
+
+#    time ansible-playbook get_vm_ip.yml
+#    time ansible-playbook get_vm_ip.yml -v -e "target_vm=['kvm-a1-1-u2004-6']"
+#    time ansible-playbook get_vm_ip.yml -v -e "target_vm=['kvm-a1-2-u2204-5']"
+#    time ansible-playbook get_vm_ip.yml -v -e "target_vm=['kvm-a1-3-u2404-1']"
+#    time ansible-playbook get_vm_ip.yml -v -e "target_vm=['kvm-a1-4-u2410']"
+
+- hosts: "{{ target_vm | default('kvm_guests') }}"
+
+  become: true
+  tasks:
+    - name: Get network interface details
+      shell: ip -br -c a
+      register: ip_info
+
+    - name: Display network interface details
+      debug:
+        msg: "{{ ip_info.stdout }}"
+

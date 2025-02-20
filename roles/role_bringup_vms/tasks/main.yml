@@ -1,0 +1,63 @@
+---
+- name: Get host information
+  setup:
+    gather_subset: ['!all', 'min']
+
+- name: Get VM status and check existence
+  command: virsh domstate {{ item }}
+  register: vm_status
+  changed_when: false
+  failed_when: false
+  with_items: "{{ target_vm | default(groups['kvm_guests']) }}"
+
+- name: Filter out localhost from target VMs
+  set_fact:
+    filtered_vms: "{{ vm_status.results | selectattr('item', 'ne', inventory_hostname) | list }}"
+
+- name: Identify non-existent VMs
+  fail:
+    msg: "VM {{ item.item }} does not exist on the host"
+  when: item.rc != 0
+  with_items: "{{ filtered_vms }}"
+
+- name: Start VM if not running
+  block:
+    - name: Log current status
+      debug:
+        msg: "VM {{ item.item }} status: {{ item.stdout }}"
+      with_items: "{{ filtered_vms }}"
+
+    - name: Attempt to start VM
+      command: virsh start {{ item.item }}
+      register: start_result
+      when: item.stdout != "running"
+      with_items: "{{ filtered_vms }}"
+
+    - name: Wait for VM to start
+      command: virsh domstate {{ item.item }}
+      register: check_status
+      until: check_status.stdout == "running"
+      retries: "{{ kvm_monitor_max_attempts }}"
+      delay: "{{ kvm_monitor_wait_time }}"
+      when: item.stdout != "running"
+      with_items: "{{ filtered_vms }}"
+
+    - name: Report final status
+      debug:
+        msg: "VM {{ item.item }} final status: {{ check_status.stdout | default(item.stdout) }}"
+      with_items: "{{ filtered_vms }}"
+
+    - name: Verify VM is running
+      fail:
+        msg: "Failed to start VM {{ item.item }} after {{ kvm_monitor_max_attempts }} attempts"
+      when:
+        - item.stdout != "running"
+        - check_status.stdout is defined
+        - check_status.stdout != "running"
+      with_items: "{{ filtered_vms }}"
+
+  rescue:
+    - name: Log failure details
+      debug:
+        msg: "Failed to start VMs. Check virsh error messages for details."
+

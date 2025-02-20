@@ -1,0 +1,4 @@
+# setup_guest_vms/defaults/main.yml
+---
+kvm_monitor_max_attempts: 3
+kvm_monitor_wait_time: 30

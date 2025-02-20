@@ -1,0 +1,3 @@
+# setup_guest_vms/defaults/main.yml
+vars:
+  ollama_host_path: "/usr/share/ollama/.ollama/models"

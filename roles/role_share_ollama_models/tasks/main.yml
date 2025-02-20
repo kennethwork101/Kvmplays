@@ -1,0 +1,62 @@
+---
+# File: role_share_ollama_models/tasks/main.yml
+- name: Ensure Ollama models directory exists on host
+  file:
+    path: "{{ ollama_models_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Stop the VMs if running
+  command: virsh shutdown {{ item }}
+  with_items: "{{ target_vm | default(groups['kvm_guests']) }}"
+  ignore_errors: yes
+
+- name: Wait for VMs to stop
+  wait_for:
+    timeout: 30
+
+- name: Get current VM XML configurations
+  command: virsh dumpxml {{ item }}
+  register: vm_xml
+  with_items: "{{ target_vm | default(groups['kvm_guests']) }}"
+
+- name: Create working copy of XML
+  copy:
+    content: "{{ item.stdout }}"
+    dest: "/tmp/{{ item.item }}_current.xml"
+  with_items: "{{ vm_xml.results }}"
+
+- name: Add memory backing configuration
+  shell: |
+    sed -i '/<domain/a \  <memoryBacking>\n    <source type="memfd"/>\n    <access mode="shared"/>\n  </memoryBacking>' "/tmp/{{ item.item }}_current.xml"
+  with_items: "{{ vm_xml.results }}"
+  when: item.stdout.find('<memoryBacking>') == -1
+
+- name: Add filesystem configuration
+  shell: |
+    sed -i '/<devices/a \    <filesystem type="mount" accessmode="passthrough">\n      <driver type="virtiofs"/>\n      <source dir="{{ ollama_models_path }}"/>\n      <target dir="host_models_to_vm"/>\n    </filesystem>' "/tmp/{{ item.item }}_current.xml"
+  with_items: "{{ vm_xml.results }}"
+  when: item.stdout.find('host_models_to_vm') == -1
+
+- name: Define VMs with new configuration
+  command: virsh define /tmp/{{ item }}_current.xml
+  with_items: "{{ target_vm | default(groups['kvm_guests']) }}"
+
+- name: Start the VMs
+  command: virsh start {{ item }}
+  with_items: "{{ target_vm | default(groups['kvm_guests']) }}"
+  ignore_errors: yes
+
+- name: Wait for VMs to be available
+  wait_for:
+    host: "{{ hostvars[item]['ansible_host'] }}"
+    port: 22
+    delay: 10
+    timeout: 90
+  with_items: "{{ target_vm | default(groups['kvm_guests']) }}"
+
+- name: Clean up temporary files
+  file:
+    path: "/tmp/{{ item }}_current.xml"
+    state: absent
+  with_items: "{{ target_vm | default(groups['kvm_guests']) }}"

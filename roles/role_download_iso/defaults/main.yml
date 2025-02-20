@@ -1,0 +1,9 @@
+# role_load_download_iso/defaults/main.yml
+
+concurrent_runs: 2  # default value
+
+iso_images:
+  - https://releases.ubuntu.com/20.04.6/ubuntu-20.04.6-desktop-amd64.iso
+  - https://releases.ubuntu.com/22.04.5/ubuntu-22.04.5-desktop-amd64.iso
+  - https://releases.ubuntu.com/24.04/ubuntu-24.04.1-desktop-amd64.iso
+  - https://releases.ubuntu.com/24.10/ubuntu-24.10-desktop-amd64.iso

@@ -1,0 +1,137 @@
+---
+- name: Delete KVM Virtual Machines except the one ends with -clone
+  hosts: kvm_host
+  become: yes
+
+  tasks:
+    - name: Retrieve a list of all VMs
+      command: virsh list --all --name
+      register: all_vms
+      changed_when: false
+
+    - name: Filter VMs based on naming rules
+      set_fact:
+        filtered_vms: "{{ all_vms.stdout_lines | select('match', '^kvm-.*(?<!-clone)$') | list }}"
+
+    - name: Display filtered VM list
+      debug:
+        msg:
+          - "VMs matching criteria (starting with 'kvm-' but not ending with '-clone'):"
+          - "{{ filtered_vms }}"
+
+    - name: Exit if no VMs to delete
+      meta: end_play
+      when: filtered_vms | length == 0
+
+    - name: Get VM IP addresses
+      shell: |
+        virsh domifaddr {{ item }} 2>/dev/null | awk '/ipv4/ {print $4}' | cut -d'/' -f1
+      register: vm_ips
+      changed_when: false
+      failed_when: false
+      with_items: "{{ filtered_vms }}"
+
+    - name: Display VMs and IPs to be cleaned
+      debug:
+        msg: "VM: {{ item.item }} - IP: {{ item.stdout if item.stdout != '' else 'No IP found' }}"
+      with_items: "{{ vm_ips.results }}"
+
+    - name: Confirm cleanup
+      pause:
+        prompt: |
+          Above are the VMs that will be deleted along with their SSH entries.
+          IMPORTANT:
+          - Only VMs starting with 'kvm-' will be processed
+          - VMs ending with '-clone' will be preserved
+          Press ENTER to continue or Ctrl+C to abort
+
+    - name: Remove SSH known_hosts entries by IP
+      shell: ssh-keygen -R {{ item.stdout }}
+      with_items: "{{ vm_ips.results }}"
+      when: item.stdout != ""
+      become: no
+      ignore_errors: yes
+
+    - name: Remove SSH known_hosts entries by hostname
+      shell: ssh-keygen -R {{ item }}
+      with_items: "{{ filtered_vms }}"
+      become: no
+      ignore_errors: yes
+
+    - name: Remove SSH known_hosts entries by FQDN
+      shell: ssh-keygen -R {{ item }}.{{ ansible_domain }}
+      with_items: "{{ filtered_vms }}"
+      when: ansible_domain is defined
+      become: no
+      ignore_errors: yes
+
+    - name: Get VMs status
+      command: virsh domstate {{ item }}
+      register: vm_status
+      changed_when: false
+      failed_when: false
+      with_items: "{{ filtered_vms }}"
+
+    - name: Stop running VMs
+      command: virsh destroy {{ item.item }}
+      with_items: "{{ vm_status.results }}"
+      when:
+        - item.rc == 0
+        - item.stdout == "running"
+      ignore_errors: yes
+
+    - name: VMs cleanup via undefine VMs and remove their storage
+      command: virsh undefine {{ item.item }} --remove-all-storage
+      with_items: "{{ vm_status.results }}"
+      when: item.rc == 0
+      ignore_errors: yes
+
+    - name: Find VMs disk images
+      find:
+        paths: /var/lib/libvirt/images
+        patterns: "{{ item.item }}*.qcow2,{{ item.item }}*.img"
+      with_items: "{{ vm_status.results }}"
+      register: vm_images
+
+    - name: Delete remaining VM disk images
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ vm_images.results | map(attribute='files') | flatten | list }}"
+      when: vm_images.results is defined
+
+    - name: Clean up VM config files
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items: "{{ config_paths }}"
+      vars:
+        config_paths: "{{ filtered_vms | map('regex_replace', '^(.*)$', '/etc/libvirt/qemu/\\1.xml') | list +
+                         filtered_vms | map('regex_replace', '^(.*)$', '/etc/libvirt/storage/\\1.xml') | list }}"
+
+    - name: Remove VM snapshots directory
+      file:
+        path: "/var/lib/libvirt/qemu/snapshot/{{ item }}"
+        state: absent
+      with_items: "{{ filtered_vms }}"
+
+    - name: Remove SSH config files
+      file:
+        path: "{{ item[0] }}/config.d/{{ item[1] }}"
+        state: absent
+      with_nested:
+        - - "/root/.ssh"
+          - "~/.ssh"
+        - "{{ filtered_vms }}"
+      ignore_errors: yes
+
+    - name: Clean libvirt cache
+      command: virsh pool-refresh default
+      ignore_errors: yes
+
+    - name: Summary of operations
+      debug:
+        msg:
+          - "Cleanup operation complete"
+          - "Processed VMs:"
+          - "{{ filtered_vms | join(', ') }}"

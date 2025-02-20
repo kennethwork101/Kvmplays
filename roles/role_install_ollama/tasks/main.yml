@@ -1,0 +1,122 @@
+---
+# role_install_ollama/tasks/main.yml 
+- name: Check if Ollama is already installed
+  command: which ollama
+  register: ollama_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Check Ollama version if installed
+  command: ollama --version
+  register: ollama_version_check
+  ignore_errors: yes
+  changed_when: false
+  when: ollama_check.rc == 0
+
+- name: Display current Ollama version if installed
+  debug:
+    msg: "Ollama is already installed (version: {{ ollama_version_check.stdout }}). Skipping installation."
+  when: ollama_check.rc == 0
+
+- name: Install required dependencies
+  apt:
+    name:
+      - curl
+      - ca-certificates
+      - gnupg
+    state: present
+    update_cache: yes
+  when: ollama_check.rc != 0
+
+- name: Ensure systemd is properly configured
+  apt:
+    name: systemd
+    state: present
+  when: 
+    - ollama_check.rc != 0
+
+- name: Download and install Ollama
+  block:
+    - name: Download Ollama install script
+      get_url:
+        url: https://ollama.ai/install.sh
+        dest: /tmp/ollama_install.sh
+        mode: '0755'
+        force: yes
+
+    - name: Execute Ollama install script
+      command: /tmp/ollama_install.sh
+      register: install_result
+      changed_when: install_result.rc == 0
+
+    - name: Clean up install script
+      file:
+        path: /tmp/ollama_install.sh
+        state: absent
+  when: 
+    - ollama_check.rc != 0
+
+- name: Create systemd service directory
+  file:
+    path: /etc/systemd/system
+    state: directory
+    mode: '0755'
+  when: ollama_check.rc != 0
+
+- name: Create Ollama systemd service file
+  copy:
+    dest: /etc/systemd/system/ollama.service
+    content: |
+      [Unit]
+      Description=Ollama Service
+      After=network-online.target
+
+      [Service]
+      ExecStart=/usr/local/bin/ollama serve
+      Environment=OLLAMA_MODELS=/usr/share/ollama/.ollama/models
+      User=root
+      Group=root
+      Restart=always
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  when: ollama_check.rc != 0
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  when: ollama_check.rc != 0
+
+- name: Ensure Ollama service is running
+  systemd:
+    name: ollama
+    state: started
+    enabled: yes
+  when: ollama_check.rc != 0
+
+- name: Verify new Ollama installation
+  command: ollama --version
+  register: ollama_version
+  changed_when: false
+  when: ollama_check.rc != 0
+
+- name: Display new Ollama version
+  debug:
+    msg: "Successfully installed Ollama (version: {{ ollama_version.stdout }})"
+  when: ollama_check.rc != 0
+
+- name: Add virtiofs mount to /etc/fstab if not present
+  lineinfile:
+    path: /etc/fstab
+    line: "{{ virtiofs_tag }} {{ ollama_models_path }} virtiofs defaults 0 0"
+    state: present
+    regexp: "^{{ virtiofs_tag }}"
+
+# - name: Mount virtiofs filesystem
+#   mount:
+#     path: "{{ ollama_models_path }}"
+#     src: "{{ virtiofs_tag }}"
+#     fstype: virtiofs
+#     state: mounted

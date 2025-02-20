@@ -1,0 +1,53 @@
+---
+
+#    time ansible-playbook _cleanup_vms.yml
+#    time ansible-playbook cleanup_vms.yml -v -e "target_vm=['kvm-a1-1-u2004-6']"
+#    time ansible-playbook cleanup_vms.yml -v -e "target_vm=['kvm-a1-2-u2204-5']"
+#    time ansible-playbook cleanup_vms.yml -v -e "target_vm=['kvm-a1-3-u2404-1']"
+#    time ansible-playbook cleanup_vms.yml -v -e "target_vm=['kvm-a1-4-u2410']"
+
+- name: Get VM list from KVM host
+  hosts: kvm_host
+  become: true
+  tasks:
+    - name: Get list of all VMs
+      command: virsh list --all --name
+      register: all_vms
+      changed_when: false
+
+    - name: Filter VMs based on naming rules
+      set_fact:
+        filtered_vms: "{{ all_vms.stdout_lines | select('match', '^kvm-.*(?<!-clone)$') | list }}"
+
+    - name: Display filtered VM list
+      debug:
+        msg:
+          - "VMs matching criteria (starting with 'kvm-' but not ending with '-clone'):"
+          - "{{ filtered_vms }}"
+
+    - name: Set filtered VMs as a fact
+      set_fact:
+        filtered_vms: "{{ filtered_vms }}"
+      delegate_to: localhost
+      delegate_facts: true
+
+- name: Delete uvprog2025 folder from filtered KVM Virtual Machines
+  hosts: "{{ target_vm | default('kvm_guests') }}"
+  become: yes
+  vars:
+    username: "kenneth"
+    uvprog: "uvprog2025"
+  tasks:
+    - name: Get home directory of the user
+      shell: "getent passwd {{ username }} | cut -d: -f6"
+      register: user_home
+
+    - name: Display the user's home directory
+      debug:
+        msg: "user_home {{ user_home.stdout }}"
+
+    - name: Delete a directory if it exists
+      file:
+        path: "{{ user_home.stdout }}/{{ uvprog }}"
+        state: absent
+      when: inventory_hostname in hostvars['localhost']['filtered_vms']

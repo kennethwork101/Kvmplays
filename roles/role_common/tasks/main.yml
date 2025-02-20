@@ -1,0 +1,148 @@
+- name: "Output some information on our host"
+  ansible.builtin.debug:
+    msg: "I am connecting to {{ ansible_nodename }} which is running {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+- name: Ensure .bashrc exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    state: file
+    mode: '0644'
+    modification_time: preserve
+    access_time: preserve
+  become: true
+
+- name: Add aliases to .bashrc if they don't exist
+  lineinfile:
+    path: /home/kenneth/.bashrc
+    line: "alias {{ item.key }}='{{ item.value }}'"
+    regexp: "^alias {{ item.key }}="
+    state: present
+  with_dict: "{{ aliases }}"
+  become: true
+
+- name: Add exports to .bashrc if they don't exist
+  lineinfile:
+    path: /home/kenneth/.bashrc
+    line: "export {{ item.key }}={{ item.value }}"
+    regexp: "^export {{ item.key }}="
+    state: present
+  with_dict: "{{ exports }}"
+  become: true
+
+- name: "Update all packages to the latest version"
+  ansible.builtin.apt:
+    name: "*"
+    state: "latest"
+    update_cache: true
+
+- name: "Install common packages"
+  ansible.builtin.apt:
+    state: "present"
+    pkg: "{{ common_packages }}"
+
+- name: Install snapd
+  apt:
+    name: snapd
+    state: present
+    update_cache: yes
+
+- name: Start qemu-guest-agent
+  systemd:
+    name: qemu-guest-agent
+    state: started
+    daemon_reload: yes
+
+- name: Get home directory of the user
+  shell: "getent passwd {{ username }} | cut -d: -f6"
+  register: user_home
+
+- name: Display the kenneth user_home
+  debug:
+    msg: "user_home {{ user_home.stdout }}"
+
+- name: Ensure the .bashrc file exists
+  file:
+    path: "{{ user_home.stdout }}/.bashrc"
+    state: touch
+    mode: '0644'
+  become: false
+
+- name: Add ~/.local/bin to PATH in .bashrc if not already present
+  lineinfile:
+    path: "{{ user_home.stdout }}/.bashrc"
+    regexp: '(^|^#).*export PATH=\$HOME/\.local/bin:\$PATH'
+    line: 'export PATH=$HOME/.local/bin:$PATH'
+    state: present
+  become: false
+
+- name: Create a directory if it does not exist
+  file:
+    path: "{{ user_home.stdout }}/.local/bin/"
+    state: directory
+    mode: '0755'
+
+- name: Check if uv is already installed
+  ansible.builtin.stat:
+    path: "{{ user_home.stdout }}/.local/bin/uv"
+  register: uv_installed
+
+- name: Install uv
+  ansible.builtin.shell: |
+    export PATH={{ user_home.stdout }}/.local/bin:$PATH
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  environment:
+    HOME: "{{ user_home.stdout }}"
+  when: uv_installed.stat.exists == false
+  changed_when: true
+
+- name: Check if ruff is already installed
+  ansible.builtin.stat:
+    path: "{{ user_home.stdout }}/.local/bin/ruff"
+  register: ruff_installed
+
+- name: Install ruff
+  ansible.builtin.shell: |
+    export PATH={{ user_home.stdout }}/.local/bin:$PATH
+    curl -LsSf https://astral.sh/ruff/install.sh | sh
+  environment:
+    HOME: "{{ user_home.stdout }}"
+  when: ruff_installed.stat.exists == false
+  changed_when: true
+
+- name: Check if Docker is installed
+  command: docker --version
+  register: docker_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Download Docker install script
+  get_url:
+    url: https://get.docker.com/
+    dest: /tmp/get-docker.sh
+    mode: '0755'
+  when: docker_check.rc != 0
+
+- name: Run Docker install script
+  shell: /tmp/get-docker.sh
+  when: docker_check.rc != 0
+
+- name: Ensure docker group exists
+  group:
+    name: docker
+    state: present
+  when: docker_check.rc != 0
+
+- name: Add users to docker group
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop:
+    - kenneth
+    - ansible
+
+- name: Ensure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: yes

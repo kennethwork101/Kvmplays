@@ -1,0 +1,99 @@
+# role_download_iso/tasks/main.yml
+
+- name: Install python3-pip
+  apt:
+    name: python3-pip
+    state: present
+  become: yes
+
+- name: Install required Python packages using apt
+  apt:
+    name: python3-requests
+    state: present
+  become: yes
+
+- name: Get home directory of the user
+  shell: "getent passwd {{ username }} | cut -d: -f6"
+  register: user_home
+
+- name: Create a directory for ISO files in home directory
+  ansible.builtin.file:
+    path: "{{ user_home.stdout }}/{{ isodir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ username }}"
+    group: "{{ username }}"
+  become: yes
+
+- name: Create Python download script without progress bar
+  copy:
+    dest: /home/{{ username }}/download_without_progress.py
+    mode: '0755'
+    content: |
+      #!/usr/bin/env python3
+      import requests
+      import sys
+      import os
+
+      def download_file(url, destination):
+          try:
+              response = requests.get(url, stream=True)
+              response.raise_for_status()
+
+              with open(destination, 'wb') as file:
+                  for data in response.iter_content(1024):
+                      file.write(data)
+          except Exception as e:
+              print(f"Error downloading {url}: {e}")
+              sys.exit(1)
+
+      if __name__ == "__main__":
+          if len(sys.argv) != 3:
+              print("Usage: download_without_progress.py <url> <destination>")
+              sys.exit(1)
+
+          url = sys.argv[1]
+          destination = sys.argv[2]
+          download_file(url, destination)
+  become: yes
+
+- name: Process ISO list into structured format
+  set_fact:
+    iso_list: "{{ iso_list | default([]) + [{'name': item | basename, 'url': item}] }}"
+  loop: "{{ iso_images }}"
+
+- name: Check if ISO images already exist
+  stat:
+    path: "{{ user_home.stdout }}/{{ isodir }}/{{ item.name }}"
+  register: iso_stat
+  loop: "{{ iso_list }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create stat_results dictionary
+  set_fact:
+    stat_results: "{{ stat_results|default({}) | combine({item.item.name: item}) }}"
+  loop: "{{ iso_stat.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Download Ubuntu ISO files without progress bar
+  command: >
+    python3 /home/{{ username }}/download_without_progress.py {{ item.url }} {{ user_home.stdout }}/{{ isodir }}/{{ item.name }}
+  when: not stat_results[item.name].stat.exists
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ iso_list }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Change ownership of downloaded ISO files
+  file:
+    path: "{{ user_home.stdout }}/{{ isodir }}/{{ item.name }}"
+    owner: "{{ username }}"
+    group: "{{ username }}"
+    mode: '0644'
+  loop: "{{ iso_list }}"
+  when: not stat_results[item.name].stat.exists
+  loop_control:
+    label: "{{ item.name }}"

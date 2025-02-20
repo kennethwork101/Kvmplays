@@ -1,0 +1,6 @@
+---
+
+# role_load_uvprog2025/vars/main.yml
+
+user_local_bin: "{{ user_home.stdout }}/.local/bin"
+project_root: "{{ user_home.stdout }}/{{ uvprog }}"
