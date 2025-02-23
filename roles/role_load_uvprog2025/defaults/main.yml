@@ -17,10 +17,10 @@ python_versions:
   "24.10": "3.12"
 
 git_repos:
-  - https://github.com/kennethwork101/deeplearning-langchain-llm-course.git
+  - https://github.com/kennethwork101/Deeplearning-Langchain-Llm-Course.git
   - https://github.com/kennethwork101/Building_Large_Language_Model_Applications.git
   - https://github.com/kennethwork101/kwwutils.git
   - https://github.com/kennethwork101/LangChain_Chat_with_Your_Data.git
-  - https://github.com/kennethwork101/Learning_Langchain.git
-  # - https://github.com/kennethwork101/ollama-downloads.git
+  # - https://github.com/kennethwork101/Learning_Langchain.git
+  # - https://github.com/kennethwork101/Ollama-Downloads.git
 

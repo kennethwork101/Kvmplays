@@ -2,7 +2,10 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+*.swo
 *.swp
 .venv
 .vscode/
+README.md-*
+typescript
 wheels/

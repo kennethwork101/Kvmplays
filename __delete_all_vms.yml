@@ -1,4 +1,7 @@
 ---
+
+# time ansible-playbook __delete_all_vms.yml
+
 - name: Delete KVM Virtual Machines except the one ends with -clone
   hosts: kvm_host
   become: yes

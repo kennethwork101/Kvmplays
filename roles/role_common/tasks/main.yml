@@ -1,19 +1,40 @@
+---
+
 - name: "Output some information on our host"
   ansible.builtin.debug:
     msg: "I am connecting to {{ ansible_nodename }} which is running {{ ansible_distribution }} {{ ansible_distribution_version }}"
 
+- name: Get home directory of the user
+  shell: "getent passwd {{ username }} | cut -d: -f6"
+  register: user_home
+
+- name: Display the kenneth user_home
+  debug:
+    msg: "user_home {{ user_home.stdout }}"
+
 - name: Ensure .bashrc exists
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.bashrc"
+    path: "{{ user_home.stdout }}/.bashrc"
     state: file
     mode: '0644'
     modification_time: preserve
     access_time: preserve
   become: true
 
+- name: Add screen blanking prevention settings to .bashrc
+  lineinfile:
+    path: "{{ user_home.stdout }}/.bashrc"
+    line: "{{ item }}"
+    regexp: "^{{ item | regex_escape }}"
+    state: present
+  with_items:
+    - 'if [ -n "$DISPLAY" ]; then gsettings set org.gnome.desktop.session idle-delay 0; fi'
+    - 'if [ -n "$DISPLAY" ]; then gsettings set org.gnome.desktop.screensaver lock-enabled false; fi'
+  become: true
+
 - name: Add aliases to .bashrc if they don't exist
   lineinfile:
-    path: /home/kenneth/.bashrc
+    path: "{{ user_home.stdout }}/.bashrc"
     line: "alias {{ item.key }}='{{ item.value }}'"
     regexp: "^alias {{ item.key }}="
     state: present
@@ -22,12 +43,23 @@
 
 - name: Add exports to .bashrc if they don't exist
   lineinfile:
-    path: /home/kenneth/.bashrc
+    path: "{{ user_home.stdout }}/.bashrc"
     line: "export {{ item.key }}={{ item.value }}"
     regexp: "^export {{ item.key }}="
     state: present
   with_dict: "{{ exports }}"
   become: true
+
+# - name: Add screen blanking prevention settings to .bashrc
+#   lineinfile:
+#     path: "{{ user_home.stdout }}/.bashrc"
+#     line: "{{ item }}"
+#     regexp: "^{{ item | regex_escape }}"
+#     state: present
+#   with_items:
+#     - 'if [ -n "$DISPLAY" ]; then gsettings set org.gnome.desktop.session idle-delay 0; fi'
+#     - 'if [ -n "$DISPLAY" ]; then gsettings set org.gnome.desktop.screensaver lock-enabled false; fi'
+#   become: true
 
 - name: "Update all packages to the latest version"
   ansible.builtin.apt:
@@ -52,20 +84,12 @@
     state: started
     daemon_reload: yes
 
-- name: Get home directory of the user
-  shell: "getent passwd {{ username }} | cut -d: -f6"
-  register: user_home
-
-- name: Display the kenneth user_home
-  debug:
-    msg: "user_home {{ user_home.stdout }}"
-
-- name: Ensure the .bashrc file exists
-  file:
-    path: "{{ user_home.stdout }}/.bashrc"
-    state: touch
-    mode: '0644'
-  become: false
+# - name: Ensure the .bashrc file exists
+#   file:
+#     path: "{{ user_home.stdout }}/.bashrc"
+#     state: touch
+#     mode: '0644'
+#   become: false
 
 - name: Add ~/.local/bin to PATH in .bashrc if not already present
   lineinfile:

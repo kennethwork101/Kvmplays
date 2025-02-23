@@ -44,8 +44,8 @@
     - name: Install Python for Ubuntu 20.04
       apt:
         name:
-          - python3.10
-          - python3.10-venv
+          - python3.11
+          - python3.11-venv
         state: present
         update_cache: yes
       become: yes
