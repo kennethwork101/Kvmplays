@@ -1,0 +1,38 @@
+# Pytest Test Report
+
+Generated: {{ ansible_date_time.iso8601 }}
+
+{% for repo_name in git_repo_names %}
+## {{ repo_name }}
+
+### Test Results
+```
+{% for result in test_results %}
+{% if (result.item | basename | splitext)[0] == repo_name %}
+{{ result.stdout }}
+{% endif %}
+{% endfor %}
+```
+
+### Summary
+```
+{% for summary in test_summary %}
+{% if (summary.item | basename | splitext)[0] == repo_name %}
+{{ summary.stdout }}
+{% endif %}
+{% endfor %}
+```
+
+{% for junit in junit_results %}
+{% if junit.matches is defined and junit.matches | length > 0 and (junit.item | basename | splitext)[0] == repo_name %}
+### Statistics
+- Tests run: {{ junit.matches[0].testsuite.tests }}
+- Failures: {{ junit.matches[0].testsuite.failures }}
+- Errors: {{ junit.matches[0].testsuite.errors }}
+- Skipped: {{ junit.matches[0].testsuite.skipped }}
+- Time: {{ junit.matches[0].testsuite.time }} seconds
+{% endif %}
+{% endfor %}
+
+---
+{% endfor %}

@@ -1,0 +1,455 @@
+---
+
+# role_load_uvprog2025/tasks/main.yml
+
+- name: Setup block
+  block:
+    - name: Get Ubuntu version
+      shell: "lsb_release -rs"
+      register: ubuntu_version
+      changed_when: false
+
+    - name: Set Python version based on Ubuntu version
+      set_fact:
+        python_version: "{{ python_versions[ubuntu_version.stdout] | default(default_python_version) }}"
+
+    - name: Display selected Python version
+      debug:
+        msg: "Using Python {{ python_version }} based on Ubuntu {{ ubuntu_version.stdout }}"
+
+    - name: Get home directory of the user
+      shell: "getent passwd {{ username }} | cut -d: -f6"
+      register: user_home
+      changed_when: false
+
+    - name: Set project paths
+      set_fact:
+        project_root: "{{ user_home.stdout }}/{{ uvprog }}"
+        user_local_bin: "{{ user_home.stdout }}/.local/bin"
+
+- name: Python installation preparation
+  block:
+    - name: Add deadsnakes PPA for Ubuntu < 24.04
+      apt_repository:
+        repo: ppa:deadsnakes/ppa
+        state: present
+        update_cache: yes
+      become: yes
+      when:
+        - ansible_distribution == 'Ubuntu'
+        - ubuntu_version.stdout is version('24.04', '<')
+
+- name: Python installation block
+  block:
+    - name: Install Python for Ubuntu 20.04
+      apt:
+        name:
+          - python3.11
+          - python3.11-venv
+        state: present
+        update_cache: yes
+      become: yes
+      when:
+        - ansible_distribution == 'Ubuntu'
+        - ubuntu_version.stdout == '20.04'
+
+    - name: Install Python for Ubuntu 22.04
+      apt:
+        name:
+          - python3.11
+          - python3.11-venv
+        state: present
+        update_cache: yes
+      become: yes
+      when:
+        - ansible_distribution == 'Ubuntu'
+        - ubuntu_version.stdout == '22.04'
+
+    - name: Install Python for Ubuntu 24.04/24.10
+      apt:
+        name:
+          - python3.12
+          - python3.12-venv
+        state: present
+        update_cache: yes
+      become: yes
+      when:
+        - ansible_distribution == 'Ubuntu'
+        - ubuntu_version.stdout is version('24.04', '>=')
+
+- name: Directory setup block
+  block:
+    - name: Create project directory structure
+      ansible.builtin.file:
+        path: "{{ project_root }}"
+        state: directory
+        mode: "{{ default_file_mode }}"
+        owner: "{{ username }}"
+        group: "{{ username }}"
+      become: yes
+
+    - name: Create __init__.py file
+      file:
+        path: "{{ project_root }}/__init__.py"
+        state: touch
+        mode: "{{ default_restricted_mode }}"
+        owner: "{{ username }}"
+        group: "{{ username }}"
+      become: yes
+
+- name: Git repository management
+  block:
+
+    - name: Check existing directories
+      stat:
+        path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
+      loop: "{{ git_repos }}"
+      register: dir_check
+      become: yes
+
+    - name: List directories that will be removed
+      debug:
+        msg: "Found existing directory: {{ item.stat.path }}"
+      loop: "{{ dir_check.results }}"
+      when: item.stat.exists
+
+    - name: Prompt for directory removal confirmation
+      pause:
+        prompt: "The above directories will be removed. Do you want to continue? (yes/no)"
+      register: user_confirmation
+      when: dir_check.results | map(attribute='stat.exists') | select | list | length > 0
+
+    - name: Remove existing directories
+      file:
+        path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
+        state: absent
+      loop: "{{ git_repos }}"
+      become: yes
+      when: >
+        (dir_check.results | map(attribute='stat.exists') | select | list | length > 0) and
+        (user_confirmation.user_input | default('no') | lower == 'yes')
+      register: remove_result
+
+    # ### This code does not ask for confimation
+    # - name: Remove existing directories
+    #   file:
+    #     path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
+    #     state: absent
+    #   loop: "{{ git_repos }}"
+    #   become: yes
+
+    - name: Wait for directory removal to complete
+      wait_for:
+        path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
+        state: absent
+        timeout: 30
+      loop: "{{ git_repos }}"
+      when: remove_result.changed | default(false)
+      become: yes
+
+    - name: Clone git repositories
+      git:
+        repo: "{{ item }}"
+        dest: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
+        clone: yes
+        update: yes
+        force: yes
+      loop: "{{ git_repos }}"
+      register: git_clone_result
+      become: yes
+      become_user: "{{ username }}"
+      throttle: "{{ concurrent_runs }}"
+      when: >
+        (not dir_check.results | map(attribute='stat.exists') | select | list | length > 0) or
+        (user_confirmation.user_input | default('no') | lower == 'yes')
+
+    - name: Set repository permissions
+      file:
+        path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        recurse: yes
+        mode: "{{ default_file_mode }}"
+      loop: "{{ git_repos }}"
+      become: yes
+      when: git_clone_result.changed | default(false)
+
+- name: Python environment setup
+  block:
+    - name: Pin Python version for uv
+      shell: |
+        if [[ ! -f .python-version ]] || [[ $(cat .python-version) != "{{ python_version }}" ]]; then
+          uv python pin {{ python_version }}
+        fi
+      args:
+        chdir: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
+        executable: /bin/bash
+      loop: "{{ git_repos }}"
+      become: yes
+      become_user: "{{ username }}"
+      environment:
+        PATH: "{{ user_local_bin }}:{{ ansible_env.PATH }}"
+      register: uv_python_pin_result
+      changed_when: uv_python_pin_result.rc == 0
+      failed_when:
+        - uv_python_pin_result.rc != 0
+        - "'already exists' not in uv_python_pin_result.stderr"
+
+    - name: Set .python-version permissions
+      file:
+        path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}/.python-version"
+        state: file
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        mode: "0644"
+      loop: "{{ git_repos }}"
+      become: yes
+
+- name: Package management
+  block:
+    - name: Run uv sync operations
+      shell: "{{ item.1.cmd }}"
+      args:
+        chdir: "{{ project_root }}/{{ (item.0 | basename | splitext)[0] }}"
+        executable: /bin/bash
+      become: yes
+      become_user: "{{ username }}"
+      environment:
+        PATH: "{{ user_local_bin }}:{{ ansible_env.PATH }}"
+      with_nested:
+        - "{{ git_repos }}"
+        - - { cmd: "uv sync", name: "basic sync" }
+          - { cmd: "uv sync --extra dev", name: "dev dependencies sync" }
+      register: uv_sync_results
+      changed_when: uv_sync_results.rc == 0
+      failed_when:
+        - uv_sync_results.rc != 0
+        - "'already synchronized' not in uv_sync_results.stderr"
+
+- name: Final permissions setup
+  block:
+    - name: Ensure correct permissions for project root
+      file:
+        path: "{{ project_root }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        recurse: yes
+        mode: "{{ default_file_mode }}"
+      become: yes
+
+    - name: Ensure correct permissions for repository directories and venvs
+      file:
+        path: "{{ project_root }}/{{ (item.0 | basename | splitext)[0] }}{{ item.1 }}"
+        state: directory
+        owner: "{{ username }}"
+        group: "{{ username }}"
+        recurse: yes
+        mode: "{{ default_file_mode }}"
+      with_nested:
+        - "{{ git_repos }}"
+        - ["", "/.venv"]
+      become: yes
+      ignore_errors: yes  # In case .venv doesn't exist for some repos
+
+- name: Testing preparation
+  block:
+    - name: Record test start time
+      set_fact:
+        test_start_time: "{{ ansible_date_time.iso8601 }}"
+      when: ansible_check_mode is not defined or not ansible_check_mode
+
+    - name: Log test start
+      debug:
+        msg: "Starting pytest at {{ test_start_time }}"
+      when: ansible_check_mode is not defined or not ansible_check_mode
+
+- name: Print timestamp before running pytest
+  debug:
+    msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
+
+- name: Run pytest with virtual environment
+  shell: |
+    source .venv/bin/activate && uv run pytest -v -s --run_type one -m "testme and not vectordbfew and not vectordball" --timeout=120 | tee pytest_output.log
+    # source .venv/bin/activate && uv run pytest -v -s --run_type one -m "not vectordbfew and not vectordball" --timeout=120 | tee pytest_output.log
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    executable: /bin/bash
+  async: 1800  # Run the task asynchronously with a timeout of 30 minutes
+  poll: 60      # Poll for the status every 60 seconds
+  become: yes
+  become_user: "{{ username }}"
+  environment:
+    PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
+    PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+  loop: "{{ git_repos }}"
+  throttle: "{{ concurrent_runs }}"
+  register: pytest_result
+
+- name: Check job status with timestamps
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 240
+  delay: 5
+  loop: "{{ pytest_result.results }}"
+
+- name: Print job status with timestamp
+  debug:
+    msg: "Checking job status at {{ ansible_date_time.iso8601 }} - Finished: {{ job_result.finished }}"
+  loop: "{{ pytest_result.results }}"
+
+- name: Fetch pytest log content periodically
+  shell: tail -n 20 "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/pytest_output.log"
+  register: log_output
+  become: yes
+  become_user: "{{ username }}"
+  delay: 5  # Delay between log fetches
+  retries: 240  # Number of retries to match the async timeout
+  loop: "{{ git_repos }}"
+
+- name: Print log content
+  debug:
+    msg: "{{ log_output.stdout }}"
+  loop: "{{ log_output.results }}"
+  when: log_output.results is defined
+
+- name: Print completion timestamp
+  debug:
+    msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"
+
+- name: Testing preparation
+  block:
+    - name: Record test start time
+      set_fact:
+        test_start_time: "{{ ansible_date_time.iso8601 }}"
+      when: ansible_check_mode is not defined or not ansible_check_mode
+
+    - name: Log test start
+      debug:
+        msg: "Starting pytest at {{ test_start_time }}"
+      when: ansible_check_mode is not defined or not ansible_check_mode
+
+- name: Print timestamp before running pytest
+  debug:
+    msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
+
+- name: Update pytest command to skip Chroma tests if SQLite is outdated
+  set_fact:
+    pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
+  when: sqlite_version.stdout is version('3.35.0', '<') and (new_sqlite_version.stdout is not defined or new_sqlite_version.stdout is version('3.35.0', '<'))
+
+- name: Set normal pytest command if SQLite is up to date
+  set_fact:
+    pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
+  when: sqlite_version.stdout is version('3.35.0', '>=') or (new_sqlite_version.stdout is defined and new_sqlite_version.stdout is version('3.35.0', '>='))
+
+- name: Run pytest with virtual environment
+  shell: |
+    # source .venv/bin/activate && uv run pytest -v -s --run_type one -m "testme and not vectordbfew and not vectordball" --timeout=120 --junitxml=test_results.xml | tee pytest_output.log
+    source .venv/bin/activate && {{ pytest_cmd }}
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    executable: /bin/bash
+  async: 1800  # Run the task asynchronously with a timeout of 30 minutes
+  poll: 60      # Poll for the status every 60 seconds
+  become: yes
+  become_user: "{{ username }}"
+  environment:
+    PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
+    PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+  loop: "{{ git_repos }}"
+  throttle: "{{ concurrent_runs }}"
+  register: pytest_result
+
+- name: Check job status with timestamps
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 240
+  delay: 5
+  loop: "{{ pytest_result.results }}"
+
+# Generate summary from test results
+- name: Parse pytest output for test results
+  shell: |
+    awk '/FAILED|PASSED|ERROR|SKIPPED/ && !/=====|Passed|Failed|Skipped|Error|collected|warnings|doctest|no tests/' pytest_output.log | sort | uniq
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ git_repos }}"
+  register: test_results
+  changed_when: false
+
+- name: Extract test summary from output
+  shell: |
+    grep -A1 "= FAILURES =" pytest_output.log || echo "No failures found"
+    grep "= .* failed, .* passed" pytest_output.log || echo "Summary not found"
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ git_repos }}"
+  register: test_summary
+  changed_when: false
+  failed_when: false
+
+- name: Display test results summary
+  debug:
+    msg: |
+      ===== Test Results for {{ (item.item | basename | splitext)[0] }} =====
+      {{ item.stdout }}
+  loop: "{{ test_results.results }}"
+  when: item.stdout | trim != ""
+
+- name: Display test summary
+  debug:
+    msg: |
+      ===== Test Summary for {{ (item.item | basename | splitext)[0] }} =====
+      {{ item.stdout }}
+  loop: "{{ test_summary.results }}"
+
+- name: Parse JUnit XML results
+  community.general.xml:
+    path: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results.xml"
+    xpath: /testsuite
+    content: attribute
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ git_repos }}"
+  register: junit_results
+  failed_when: false
+
+- name: Display JUnit test summary
+  debug:
+    msg: |
+      ===== JUnit Test Summary for {{ (item.item | basename | splitext)[0] }} =====
+      Tests run: {{ item.matches[0].testsuite.tests }}
+      Failures: {{ item.matches[0].testsuite.failures }}
+      Errors: {{ item.matches[0].testsuite.errors }}
+      Skipped: {{ item.matches[0].testsuite.skipped }}
+      Time: {{ item.matches[0].testsuite.time }} seconds
+  loop: "{{ junit_results.results }}"
+  when:
+    - item.matches is defined
+    - item.matches | length > 0
+
+- name: Generate consolidated test report
+  template:
+    src: test_report.j2
+    dest: "{{ user_home.stdout }}/{{ uvprog }}/test_report.md"
+  become: yes
+  become_user: "{{ username }}"
+  vars:
+    test_results: "{{ test_results.results }}"
+    test_summary: "{{ test_summary.results }}"
+    junit_results: "{{ junit_results.results }}"
+    git_repo_names: "{{ git_repos | map('basename') | map('splitext') | map('first') | list }}"
+
+- name: Print completion timestamp
+  debug:
+    msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"

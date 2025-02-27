@@ -1,0 +1,21 @@
+# role_runtest/meta/main.yml
+---
+galaxy_info:
+  role_name: role_runtest
+  author: Kenneth Wong
+  description:
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+  galaxy_tags:
+    - kvm
+    - virtualization
+    - system
+
+dependencies: []
