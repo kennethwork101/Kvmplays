@@ -7,7 +7,6 @@
 #    time ansible-playbook get_vm_ip.yml -v -e "target_vm=['kvm-a1-4-u2410']"
 
 - hosts: "{{ target_vm | default('kvm_guests') }}"
-
   become: true
   tasks:
     - name: Get network interface details

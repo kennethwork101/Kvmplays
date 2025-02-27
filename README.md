@@ -4,7 +4,7 @@
 # KVM
 
 Manually create a set of VMs and install OS and use these VM templates to clone other guest VMs
-The VM templates have entire OS and SSH configured tso allow KVM host access using user kenneth 
+The VM templates have entire OS and SSH configured tso allow KVM host access using user kenneth
 
 ## Table of Contents
 - [Set up ssh keys](#set-keygen | kvm_host)
@@ -19,7 +19,7 @@ The VM templates have entire OS and SSH configured tso allow KVM host access usi
 
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
-## Set up SSH keys (kvm_host)
+## Set up SSH keys (set-keygen | kvm_host)
 
 --------------------------------------------------------------------------------------------------
 ```bash
@@ -35,11 +35,10 @@ ssh-keygen -t ed25519 -C "ansible"
 
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
-## Install a new OS manually]
+## - Install a new OS manually (#virt-install | kvm_host)
 
-### virt-install (kvm_host)
-
-This is an one time manual operation and then we use virt-clone to save a copy of them from accidential modification
+This is an one time manual operation
+Then we use virt-clone to save a copy of them from accidential modification
 
 --------------------------------------------------------------------------------------------------
 ```bash
@@ -117,10 +116,8 @@ sudo virt-install \
 --------------------------------------------------------------------------------------------------
 ## Clone the new VM with fully installed OS for safe keep](#virt-clone)
 
-### virt-clone (kvm_host)
-
 --------------------------------------------------------------------------------------------------
-Used the original VM to clone a new template VM for the projects
+### Used the original VM to clone a new template VM for the projects
 
 ```bash
 sudo virt-clone --original kvm-master-a1-1-u2004-6 --name kvm-master-a1-1-u2004-6-clone --file /var/lib/libvirt/images/kvm-master-a1-1-u2004-6-clone.qcow2
@@ -140,7 +137,6 @@ sudo virt-sysprep -d kvm-master-a1-4-u2410-clone   --hostname kvm-master-a1-4-u2
 ```
 
 -------------------------------------------------------------------------------------------------
---------------------------------------------------------------------------------------------------
 ### virt-manager/Run/Open (kvm_host)
 
 kvm-master-a1-1-u2004-6-clone
@@ -154,12 +150,12 @@ kvm-master-a1-4-u2410-clone
 ```bash
 sudo visudo
 kenneth ALL=(ALL) NOPASSWD: ALL
-``` 
-    
+```
+
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
 ### Login to new VM to find the IP address (kvm guest vm)
-    
+
 Install openssh-server (guest vm)
 
 --------------------------------------------------------------------------------------------------
@@ -168,9 +164,9 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y openssh-server
 ```
 
+--------------------------------------------------------------------------------------------------
 ### Enable SSH (guest vm)
 
---------------------------------------------------------------------------------------------------
 ```bash
 sudo systemctl status ssh
 sudo systemctl enable ssh
@@ -181,7 +177,8 @@ sudo systemctl status ssh
 --------------------------------------------------------------------------------------------------
 ```bash
 ip a
-``` 
+```
+
 --------------------------------------------------------------------------------------------------
 ### ssh-copy-id (kvm_host)
 
@@ -201,7 +198,6 @@ ssh-copy-id -f -i /home/kenneth/.ssh/id_ed25519_ansible.pub kenneth@192.168.1.55
 --------------------------------------------------------------------------------------------------
 ## Used the clone VM to clone a new VM for project](#virt-clone-1)
 
-
 ``bash
 sudo virt-clone --original kvm-master-a1-1-u2004-6-clone --name kvm-a1-1-u2004-6 --file /var/lib/libvirt/images/kvm-a1-1-u2004-6.qcow2
 sudo virt-clone --original kvm-master-a1-2-u2204-5-clone --name kvm-a1-2-u2204-5 --file /var/lib/libvirt/images/kvm-a1-2-u2204-5.qcow2
@@ -215,20 +211,44 @@ sudo virt-clone --original kvm-master-a1-4-u2410-clone   --name kvm-a2-4-u2410  
 ```
 
 -------------------------------------------------------------------------------------------------
--------------------------------------------------------------------------------------------------
 ## Update the hostname for the new VM](#virt-sysprep | kvm_host)
 
 ``bash
-sudo virt-sysprep -d  kvm-a1-1-u2004-6 --operations defaults,-ssh-hostkeys,-ssh-userdir
-sudo virt-sysprep -d  kvm-a1-2-u2204-5 --operations defaults,-ssh-hostkeys,-ssh-userdir
-sudo virt-sysprep -d  kvm-a1-3-u2404-1 --operations defaults,-ssh-hostkeys,-ssh-userdir
-sudo virt-sysprep -d  kvm-a1-4-u2410   --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a1-1-u2004-6 --hostname kvm-a1-1-u2004-6 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a1-2-u2204-5 --hostname kvm-a2-2-u2204-5 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a1-3-u2404-1 --hostname kvm-a1-3-u2404-1 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a1-4-u2410   --hostname kvm-a1-4-u2410 --operations defaults,-ssh-hostkeys,-ssh-userdir
 
-sudo virt-sysprep -d  kvm-a2-1-u2004-6 --operations defaults,-ssh-hostkeys,-ssh-userdir
-sudo virt-sysprep -d  kvm-a2-2-u2204-5 --operations defaults,-ssh-hostkeys,-ssh-userdir
-sudo virt-sysprep -d  kvm-a2-3-u2404-1 --operations defaults,-ssh-hostkeys,-ssh-userdir
-sudo virt-sysprep -d  kvm-a2-4-u2410   --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a2-1-u2004-6 --hostname kvm-a2-1-u2004-6 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a2-2-u2204-5 --hostname kvm-a2-2-u2204-5 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a2-3-u2404-1 --hostname kvm-a2-3-u2404-1 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a2-4-u2410   --hostname kvm-a2-4-u2410   --operations defaults,-ssh-hostkeys,-ssh-userdir
 ```
+
+-------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------
+## Enable authorized_keys for target hosts
+
+``bash
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a1-1-u2004-6.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a1-2-u2204-5.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a1-3-u2404-1.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a1-4-u2410.local'
+
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a2-1-u2004-6.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a2-2-u2204-5.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a2-3-u2404-1.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a2-4-u2410.local'
+```
+
+ssh kenneth@kvm-a1-1-u2004-6.local
+ssh kenneth@kvm-a2-1-u2004-6.local
+ssh kenneth@kvm-a1-2-u2204-5.local
+ssh kenneth@kvm-a2-2-u2204-5.local
+ssh kenneth@kvm-a1-3-u2404-1.local
+ssh kenneth@kvm-a2-3-u2404-1.local
+ssh kenneth@kvm-a1-4-u2410.local
+ssh kenneth@kvm-a2-4-u2410.local
 
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
@@ -236,7 +256,7 @@ sudo virt-sysprep -d  kvm-a2-4-u2410   --operations defaults,-ssh-hostkeys,-ssh-
 
 ```bash
 ip a
-``` 
+```
 
 ## Update inventory/inventory.ini
 
@@ -246,9 +266,10 @@ ip a
 
 --------------------------------------------------------------------------------------------------
 ```bash
-
 ssh kenneth@kvm-master-a1-1-u2004-6.local
+ssh kenneth@kvm-a1-1-u2004-6.local
 
+ansible kvm_guests_group1  -m ping
 ansible kvm_guests_group1  -m ping
 ansible kvm_guests_group2  -m ping
 ansible kvm_guests_group3  -m ping
@@ -258,6 +279,7 @@ ansible all  -m debug -a "var=ansible_host"
 time ansible-playbook kvm_guest_vms.yml
 
 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
 
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
