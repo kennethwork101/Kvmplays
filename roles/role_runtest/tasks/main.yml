@@ -347,9 +347,24 @@
   when: sqlite_version.stdout is version('3.35.0', '>=') or (new_sqlite_version.stdout is defined and new_sqlite_version.stdout is version('3.35.0', '>='))
 
 
+
+- name: VERIFICATION - Print unique identifier to confirm this is the updated code
+  debug:
+    msg: "Running UPDATED pytest solution - VERSION 2023-02-27-1"
+
+- name: VERIFICATION - Show current working directory
+  shell: pwd
+  register: current_directory
+
+- name: VERIFICATION - Display current directory
+  debug:
+    msg: "Current directory: {{ current_directory.stdout }}"
+
 - name: Run pytest with virtual environment (synchronous)
   shell: |
+    echo "Starting pytest execution in $(pwd) at $(date)" > /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
     source .venv/bin/activate && {{ pytest_cmd }}
+    echo "Completed pytest execution at $(date)" >> /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
   args:
     chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
@@ -361,6 +376,15 @@
   register: pytest_results
   loop: "{{ git_repos }}"
   throttle: "{{ concurrent_runs }}"  # This will limit concurrent executions
+
+- name: VERIFICATION - Check for debug logs
+  shell: cat /tmp/pytest_debug_*.log
+  register: debug_logs
+  failed_when: false
+
+- name: VERIFICATION - Show debug logs
+  debug:
+    msg: "Debug logs: {{ debug_logs.stdout_lines }}"
 
 - name: Print timestamp after running pytest
   debug:
