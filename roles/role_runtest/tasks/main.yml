@@ -346,44 +346,25 @@
     pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
   when: sqlite_version.stdout is version('3.35.0', '>=') or (new_sqlite_version.stdout is defined and new_sqlite_version.stdout is version('3.35.0', '>='))
 
-- name: Run pytest with virtual environment
+
+- name: Run pytest with virtual environment (synchronous)
   shell: |
     source .venv/bin/activate && {{ pytest_cmd }}
   args:
     chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
-  async: 1800  # Run the task asynchronously with a timeout of 30 minutes
-  poll: 0      # Don't poll - we'll check manually
   become: yes
   become_user: "{{ username }}"
   environment:
     PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
     PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+  register: pytest_results
   loop: "{{ git_repos }}"
-  register: pytest_result
+  throttle: "{{ concurrent_runs }}"  # This will limit concurrent executions
 
-- name: Store job IDs for tracking
-  set_fact:
-    job_ids: "{{ pytest_result.results | map(attribute='ansible_job_id') | list }}"
-    job_repo_map: "{{ dict(pytest_result.results | map('combine', {'item_base': item.item | basename | splitext | first}) | map(attribute=['ansible_job_id', 'item_base']) | list) }}"
-
-- name: Debug job IDs
+- name: Print timestamp after running pytest
   debug:
-    msg: "Job IDs to track: {{ job_ids }}"
-
-- name: Check job status until completion
-  async_status:
-    jid: "{{ item }}"
-  register: job_results
-  until: job_results.finished | default(false)
-  retries: 240
-  delay: 5
-  loop: "{{ job_ids }}"
-  ignore_errors: yes
-
-- name: Print completion timestamp
-  debug:
-    msg: "Finished pytest jobs at {{ ansible_date_time.iso8601 }}"
+    msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"
 
 # Generate summary from test results
 - name: Parse pytest output for test results
