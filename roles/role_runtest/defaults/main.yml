@@ -1,10 +1,10 @@
 ---
 
-# role_runtest/defaults/main.yml
+# role_load_uvprog2025/defaults/main.yml
 
 # Default Python version if OS detection fails
 default_python_version: "3.12"
-concurrent_runs: 4
+concurrent_runs: 10
 uvprog: "uvprog2025"
 default_file_mode: "0755"
 default_restricted_mode: "0600"
@@ -17,10 +17,10 @@ python_versions:
   "24.10": "3.12"
 
 git_repos:
-  # - https://github.com/kennethwork101/Building_Large_Language_Model_Applications.git
+  - https://github.com/kennethwork101/Building_Large_Language_Model_Applications.git
   - https://github.com/kennethwork101/Deeplearning_Langchain_Llm_Course.git
-  # - https://github.com/kennethwork101/kwwutils.git
-  # - https://github.com/kennethwork101/LangChain_Chat_with_Your_Data.git
-  # - https://github.com/kennethwork101/Learning_Langchain.git
-  # - https://github.com/kennethwork101/Ollama_Downloads.git
+  - https://github.com/kennethwork101/kwwutils.git
+  - https://github.com/kennethwork101/LangChain_Chat_with_Your_Data.git
+  - https://github.com/kennethwork101/Learning_Langchain.git
+  - https://github.com/kennethwork101/Ollama-Downloads.git
 

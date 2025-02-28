@@ -99,53 +99,13 @@
 
 - name: Git repository management
   block:
-
-    - name: Check existing directories
-      stat:
-        path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
-      loop: "{{ git_repos }}"
-      register: dir_check
-      become: yes
-
-    - name: List directories that will be removed
-      debug:
-        msg: "Found existing directory: {{ item.stat.path }}"
-      loop: "{{ dir_check.results }}"
-      when: item.stat.exists
-
-    - name: Prompt for directory removal confirmation
-      pause:
-        prompt: "The above directories will be removed. Do you want to continue? (yes/no)"
-      register: user_confirmation
-      when: dir_check.results | map(attribute='stat.exists') | select | list | length > 0
-
-    - name: Remove existing directories
+    - name: Remove existing repositories
       file:
         path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
         state: absent
       loop: "{{ git_repos }}"
       become: yes
-      when: >
-        (dir_check.results | map(attribute='stat.exists') | select | list | length > 0) and
-        (user_confirmation.user_input | default('no') | lower == 'yes')
-      register: remove_result
-
-    # ### This code does not ask for confimation
-    # - name: Remove existing directories
-    #   file:
-    #     path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
-    #     state: absent
-    #   loop: "{{ git_repos }}"
-    #   become: yes
-
-    - name: Wait for directory removal to complete
-      wait_for:
-        path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
-        state: absent
-        timeout: 30
-      loop: "{{ git_repos }}"
-      when: remove_result.changed | default(false)
-      become: yes
+      become_user: "{{ username }}"
 
     - name: Clone git repositories
       git:
@@ -159,9 +119,6 @@
       become: yes
       become_user: "{{ username }}"
       throttle: "{{ concurrent_runs }}"
-      when: >
-        (not dir_check.results | map(attribute='stat.exists') | select | list | length > 0) or
-        (user_confirmation.user_input | default('no') | lower == 'yes')
 
     - name: Set repository permissions
       file:
@@ -255,6 +212,11 @@
 
 - name: Testing preparation
   block:
+    - name: pytest_cme
+      set_fact:
+        # pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=300 --junitxml=test_results.xml | tee pytest_output.log"
+        pytest_cmd: "uv run pytest -v --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
+
     - name: Record test start time
       set_fact:
         test_start_time: "{{ ansible_date_time.iso8601 }}"
@@ -268,99 +230,60 @@
 - name: Print timestamp before running pytest
   debug:
     msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
-
-- name: Run pytest with virtual environment
-  shell: |
-    source .venv/bin/activate && uv run pytest -v -s --run_type one -m "testme and not vectordbfew and not vectordball" --timeout=120 | tee pytest_output.log
-    # source .venv/bin/activate && uv run pytest -v -s --run_type one -m "not vectordbfew and not vectordball" --timeout=120 | tee pytest_output.log
-  args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
-    executable: /bin/bash
-  async: 1800  # Run the task asynchronously with a timeout of 30 minutes
-  poll: 60      # Poll for the status every 60 seconds
-  become: yes
-  become_user: "{{ username }}"
-  environment:
-    PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
-    PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
-  loop: "{{ git_repos }}"
-  throttle: "{{ concurrent_runs }}"
-  register: pytest_result
-
-- name: Check job status with timestamps
-  async_status:
-    jid: "{{ item.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 240
-  delay: 5
-  loop: "{{ pytest_result.results }}"
-
-- name: Print job status with timestamp
-  debug:
-    msg: "Checking job status at {{ ansible_date_time.iso8601 }} - Finished: {{ job_result.finished }}"
-  loop: "{{ pytest_result.results }}"
-
-- name: Fetch pytest log content periodically
-  shell: tail -n 20 "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/pytest_output.log"
-  register: log_output
-  become: yes
-  become_user: "{{ username }}"
-  delay: 5  # Delay between log fetches
-  retries: 240  # Number of retries to match the async timeout
-  loop: "{{ git_repos }}"
-
-- name: Print log content
-  debug:
-    msg: "{{ log_output.stdout }}"
-  loop: "{{ log_output.results }}"
-  when: log_output.results is defined
-
-- name: Print completion timestamp
-  debug:
-    msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"
-
-- name: Testing preparation
-  block:
-    - name: Record test start time
-      set_fact:
-        test_start_time: "{{ ansible_date_time.iso8601 }}"
-      when: ansible_check_mode is not defined or not ansible_check_mode
-
-    - name: Log test start
-      debug:
-        msg: "Starting pytest at {{ test_start_time }}"
-      when: ansible_check_mode is not defined or not ansible_check_mode
-
-- name: Print timestamp before running pytest
-  debug:
-    msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
-
-- name: Update pytest command to skip Chroma tests if SQLite is outdated
-  set_fact:
-    pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
-  when: sqlite_version.stdout is version('3.35.0', '<') and (new_sqlite_version.stdout is not defined or new_sqlite_version.stdout is version('3.35.0', '<'))
-
-- name: Set normal pytest command if SQLite is up to date
-  set_fact:
-    pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
-  when: sqlite_version.stdout is version('3.35.0', '>=') or (new_sqlite_version.stdout is defined and new_sqlite_version.stdout is version('3.35.0', '>='))
-
-
 
 - name: VERIFICATION - Print unique identifier to confirm this is the updated code
   debug:
-    msg: "Running UPDATED pytest solution - VERSION 2023-02-27-1"
+    msg: "Running UPDATED solution for SSH Git URLs - VERSION 2023-02-27-3"
 
-- name: VERIFICATION - Show current working directory
-  shell: pwd
-  register: current_directory
 
-- name: VERIFICATION - Display current directory
+# First display task can stay in a block if needed
+- name: Display successful repositories
   debug:
-    msg: "Current directory: {{ current_directory.stdout }}"
+    msg: "Repositories available for testing: {{ successful_repos | default(['None']) }}"
 
-- name: Run pytest with virtual environment (synchronous)
+
+
+
+
+
+
+
+
+
+# # Original synchronous block
+# - name: Run pytest only for successfully cloned repositories
+#   block:
+#     - name: Display successful repositories
+#       debug:
+#         msg: "Repositories available for testing: {{ successful_repos | default(['None']) }}"
+
+#     - name: Run pytest with virtual environment (synchronous)
+#       shell: |
+#         echo "Starting pytest execution in $(pwd) at $(date)" > /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
+#         source .venv/bin/activate && {{ pytest_cmd }}
+#         echo "Completed pytest execution at $(date)" >> /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
+#       args:
+#         chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+#         executable: /bin/bash
+#       become: yes
+#       become_user: "{{ username }}"
+#       environment:
+#         PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
+#         PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+#       register: pytest_results
+#       loop: "{{ git_repos }}"
+#       throttle: "{{ concurrent_runs }}"
+
+#     - name: Print timestamp after running pytest
+#       debug:
+#         msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"
+
+# NEW ASYNC CODE - not inside a block
+- name: Display successful repositories for async run
+  debug:
+    msg: "Repositories available for testing: {{ successful_repos | default(['None']) }}"
+
+- name: Run pytest with virtual environment (asynchronous)
   shell: |
     echo "Starting pytest execution in $(pwd) at $(date)" > /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
     source .venv/bin/activate && {{ pytest_cmd }}
@@ -368,36 +291,26 @@
   args:
     chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
+  async: 1200
+  poll: 0
   become: yes
   become_user: "{{ username }}"
   environment:
     PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
     PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
-  register: pytest_results
+  register: async_jobs
   loop: "{{ git_repos }}"
-  throttle: "{{ concurrent_runs }}"  # This will limit concurrent executions
 
-- name: VERIFICATION - Check for debug logs
-  shell: cat /tmp/pytest_debug_*.log
-  register: debug_logs
-  failed_when: false
+- name: Wait for async jobs to complete
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: 120
+  delay: 60
+  loop: "{{ async_jobs.results }}"
+  # quiet: true
 
-- name: VERIFICATION - Show debug logs
+- name: Print timestamp after running async pytest
   debug:
-    msg: "Debug logs: {{ debug_logs.stdout_lines }}"
-
-- name: Print timestamp after running pytest
-  debug:
-    msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"
-
-# Generate summary from test results
-- name: Parse pytest output for test results
-  shell: |
-    awk '/FAILED|PASSED|ERROR|SKIPPED/ && !/=====|Passed|Failed|Skipped|Error|collected|warnings|doctest|no tests/' pytest_output.log | sort | uniq
-  args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
-  become: yes
-  become_user: "{{ username }}"
-  loop: "{{ git_repos }}"
-  register: test_results
-  changed_when: false
+    msg: "Finished async pytest at {{ ansible_date_time.iso8601 }}"
