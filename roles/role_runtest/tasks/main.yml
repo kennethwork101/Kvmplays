@@ -210,23 +210,37 @@
       become: yes
       ignore_errors: yes  # In case .venv doesn't exist for some repos
 
-- name: Testing preparation
-  block:
-    - name: pytest_cme
-      set_fact:
-        # pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=300 --junitxml=test_results.xml | tee pytest_output.log"
-        pytest_cmd: "uv run pytest -v --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
+# - name: Testing preparation
+#   block:
+  #   - name: pytest_cme
+  #     set_fact:
+  #       pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=300 --junitxml=test_results.xml | tee pytest_output.log"
+  #       # pytest_cmd: "uv run pytest -v --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
 
-    - name: Record test start time
-      set_fact:
-        test_start_time: "{{ ansible_date_time.iso8601 }}"
-      when: ansible_check_mode is not defined or not ansible_check_mode
+    # - name: Record test start time
+    #   set_fact:
+    #     test_start_time: "{{ ansible_date_time.iso8601 }}"
+    #   when: ansible_check_mode is not defined or not ansible_check_mode
 
-    - name: Log test start
-      debug:
-        msg: "Starting pytest at {{ test_start_time }}"
-      when: ansible_check_mode is not defined or not ansible_check_mode
+    # - name: Log test start
+    #   debug:
+    #     msg: "Starting pytest at {{ test_start_time }}"
+    #   when: ansible_check_mode is not defined or not ansible_check_mode
 
+
+- name: Record test start time
+  set_fact:
+    test_start_time: "{{ ansible_date_time.iso8601 }}"
+  when: ansible_check_mode is not defined or not ansible_check_mode
+
+- name: Log test start
+  debug:
+    msg: "Starting pytest at {{ test_start_time }}"
+  when: ansible_check_mode is not defined or not ansible_check_mode
+
+- name: pytest_cme
+  set_fact:
+    pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=900 --junitxml=test_results.xml | tee pytest_output.log"
 - name: Print timestamp before running pytest
   debug:
     msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
