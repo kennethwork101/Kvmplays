@@ -240,7 +240,9 @@
 
 - name: pytest_cme
   set_fact:
-    pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=900 --junitxml=test_results.xml | tee pytest_output.log"
+    # pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=900 --junitxml=test_results.xml | tee pytest_output.log"
+    # pytest_cmd: "uv run pytest -v -s --run_type one -m 'not vectordbfew and not vectordball and not chroma' --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
+    pytest_cmd: "uv run pytest -v --run_type one -m 'not vectordbfew and not vectordball and not chroma' --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
 - name: Print timestamp before running pytest
   debug:
     msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
