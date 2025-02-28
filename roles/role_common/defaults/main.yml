@@ -9,6 +9,8 @@ common_packages:
   - "libosinfo-bin"
   - "libvirt-clients"
   - "libvirt-daemon-system"
+  - "nload"
+  - "nmon"
   - "ntp"
   - "ntp-doc"
   - "openssh-client"

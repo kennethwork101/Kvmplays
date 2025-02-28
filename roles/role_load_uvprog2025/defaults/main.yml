@@ -11,16 +11,16 @@ default_restricted_mode: "0600"
 
 # Python versions for different Ubuntu releases
 python_versions:
-  "20.04": "3.10"
+  "20.04": "3.11"
   "22.04": "3.11"
   "24.04": "3.12"
   "24.10": "3.12"
 
 git_repos:
-  - https://github.com/kennethwork101/Deeplearning-Langchain-Llm-Course.git
   - https://github.com/kennethwork101/Building_Large_Language_Model_Applications.git
+  - https://github.com/kennethwork101/Deeplearning_Langchain_Llm_Course.git
   - https://github.com/kennethwork101/kwwutils.git
   - https://github.com/kennethwork101/LangChain_Chat_with_Your_Data.git
-  # - https://github.com/kennethwork101/Learning_Langchain.git
-  # - https://github.com/kennethwork101/Ollama-Downloads.git
+  - https://github.com/kennethwork101/Learning_Langchain.git
+  - https://github.com/kennethwork101/Ollama_Downloads.git
 
