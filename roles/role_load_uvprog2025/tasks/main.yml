@@ -363,7 +363,7 @@
 
     - name: Debug expanded pytest command
       set_fact:
-        expanded_pytest_cmd: "uv run pytest -v {% if include_testme %}--run_type one -m 'testme and not vectordbfew and not vectordball and not chroma'{% else %}--run_type one -m 'not testme and not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
+        expanded_pytest_cmd: "uv run pytest -v --run_type one -m {% if include_testme | bool %}'testme and not vectordbfew and not vectordball and not chroma'{% else %}'not testme and not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
 
     - name: Show expanded command
       debug:
