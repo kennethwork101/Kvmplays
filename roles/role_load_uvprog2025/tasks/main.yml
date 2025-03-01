@@ -337,10 +337,17 @@
         test_start_time: "{{ ansible_date_time.iso8601 }}"
       when: ansible_check_mode is not defined or not ansible_check_mode
 
-    - name: Set up pytest_cmd (fixed)
+    - name: Set up pytest_cmd (simplified)
       set_fact:
-        pytest_cmd: >-
-          uv run pytest -v {% if include_testme | bool %}--run_type one -m 'testme and not vectordbfew and not vectordball and not chroma'{% else %}--run_type one -m 'not testme and not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log
+        testme_arg: "{% if include_testme | bool %}'testme and not vectordbfew and not vectordball and not chroma'{% else %}'not testme and not vectordbfew and not vectordball and not chroma'{% endif %}"
+
+    - name: Build final pytest command
+      set_fact:
+        pytest_cmd: "uv run pytest -v --run_type one -m {{ testme_arg }} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
+
+    - name: Show final pytest command
+      debug:
+        msg: "Final command: {{ pytest_cmd }}"
 
     - name: Print timestamp before running pytest
       debug:
@@ -385,6 +392,13 @@
       become: yes
       become_user: "{{ username }}"
       ignore_errors: yes
+
+    - name: Debug actual pytest command
+      shell: |
+        echo "PYTEST_CMD: {{ pytest_cmd }}" > /tmp/debug_pytest_cmd.txt
+        echo "INCLUDE_TESTME: {{ include_testme | bool }}" >> /tmp/debug_pytest_cmd.txt
+      become: yes
+      become_user: "{{ username }}"
 
 - name: Run pytest with virtual environment
   shell: |
