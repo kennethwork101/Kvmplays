@@ -337,10 +337,10 @@
         test_start_time: "{{ ansible_date_time.iso8601 }}"
       when: ansible_check_mode is not defined or not ansible_check_mode
 
-    - name: Set up pytest_cmd
+    - name: Set up pytest_cmd (fixed)
       set_fact:
-        pytest_cmd: "uv run pytest -v {% if include_testme %}--run_type one -m 'testme and not vectordbfew and not vectordball and not chroma'{% else %}--run_type one -m 'not testme and not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
-
+        pytest_cmd: >-
+          uv run pytest -v {% if include_testme | bool %}--run_type one -m 'testme and not vectordbfew and not vectordball and not chroma'{% else %}--run_type one -m 'not testme and not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log
 
     - name: Print timestamp before running pytest
       debug:
@@ -349,6 +349,42 @@
     - name: VERIFICATION - Print unique identifier to confirm this is the updated code
       debug:
         msg: "Running UPDATED solution for SSH Git URLs - VERSION 2023-02-27-3"
+
+    - name: Debug include_testme value
+      debug:
+        msg: "include_testme value: {{ include_testme | default('not set') }} ({{ include_testme | bool }})"
+
+    - name: Debug expanded pytest command
+      set_fact:
+        expanded_pytest_cmd: "uv run pytest -v {% if include_testme %}--run_type one -m 'testme and not vectordbfew and not vectordball and not chroma'{% else %}--run_type one -m 'not testme and not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
+
+    - name: Show expanded command
+      debug:
+        msg: "Expanded pytest command: {{ expanded_pytest_cmd }}"
+
+    - name: List available pytest tests
+      shell: |
+        source .venv/bin/activate && python -m pytest --collect-only -v | grep -c 'collected'
+      args:
+        chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
+        executable: /bin/bash
+      loop: "{{ git_repos | map('basename') | map('splitext') | map('first') | list }}"
+      register: test_collection
+      become: yes
+      become_user: "{{ username }}"
+      ignore_errors: yes
+
+    - name: Check for 'testme' marked tests
+      shell: |
+        source .venv/bin/activate && python -m pytest -v -m testme --collect-only 2>&1 | grep -c 'collected'
+      args:
+        chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
+        executable: /bin/bash
+      loop: "{{ git_repos | map('basename') | map('splitext') | map('first') | list }}"
+      register: testme_count
+      become: yes
+      become_user: "{{ username }}"
+      ignore_errors: yes
 
 - name: Run pytest with virtual environment
   shell: |
