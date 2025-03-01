@@ -1,6 +1,6 @@
 ---
 
-# role_load_uvprog2025/tasks/main.yml
+# role_runtest/tasks/main.yml
 
 - name: Setup block
   block:
@@ -118,7 +118,7 @@
       register: git_clone_result
       become: yes
       become_user: "{{ username }}"
-      throttle: "{{ concurrent_runs }}"
+      throttle: "{{ effective_concurrent_runs }}"
 
     - name: Set repository permissions
       file:
@@ -210,23 +210,6 @@
       become: yes
       ignore_errors: yes  # In case .venv doesn't exist for some repos
 
-# - name: Testing preparation
-#   block:
-  #   - name: pytest_cme
-  #     set_fact:
-  #       pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=300 --junitxml=test_results.xml | tee pytest_output.log"
-  #       # pytest_cmd: "uv run pytest -v --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=120 --junitxml=test_results.xml | tee pytest_output.log"
-
-    # - name: Record test start time
-    #   set_fact:
-    #     test_start_time: "{{ ansible_date_time.iso8601 }}"
-    #   when: ansible_check_mode is not defined or not ansible_check_mode
-
-    # - name: Log test start
-    #   debug:
-    #     msg: "Starting pytest at {{ test_start_time }}"
-    #   when: ansible_check_mode is not defined or not ansible_check_mode
-
 
 - name: Record test start time
   set_fact:
@@ -238,11 +221,9 @@
     msg: "Starting pytest at {{ test_start_time }}"
   when: ansible_check_mode is not defined or not ansible_check_mode
 
-- name: pytest_cme
+- name: Set up pytest_cmd
   set_fact:
-    # pytest_cmd: "uv run pytest -v -s --run_type one -m 'testme and not vectordbfew and not vectordball and not chroma' --timeout=900 --junitxml=test_results.xml | tee pytest_output.log"
-    # pytest_cmd: "uv run pytest -v -s --run_type one -m 'not vectordbfew and not vectordball and not chroma' --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
-    pytest_cmd: "uv run pytest -v --run_type one -m 'not vectordbfew and not vectordball and not chroma' --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
+    pytest_cmd: "uv run pytest -v {% if include_testme %}--run_type one -m 'testme and not vectordbfew and not vectordball and not chroma'{% else %}--run_type one -m 'not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
 - name: Print timestamp before running pytest
   debug:
     msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
@@ -256,14 +237,6 @@
 - name: Display successful repositories
   debug:
     msg: "Repositories available for testing: {{ successful_repos | default(['None']) }}"
-
-
-
-
-
-
-
-
 
 
 # # Original synchronous block
@@ -288,13 +261,12 @@
 #         PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
 #       register: pytest_results
 #       loop: "{{ git_repos }}"
-#       throttle: "{{ concurrent_runs }}"
+#       throttle: "{{ effective_concurrent_runs }}"
 
 #     - name: Print timestamp after running pytest
 #       debug:
 #         msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"
 
-# NEW ASYNC CODE - not inside a block
 - name: Display successful repositories for async run
   debug:
     msg: "Repositories available for testing: {{ successful_repos | default(['None']) }}"

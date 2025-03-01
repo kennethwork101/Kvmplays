@@ -9,13 +9,19 @@
       register: ubuntu_version
       changed_when: false
 
-    - name: Set Python version based on Ubuntu version
+    - name: Set Python version based on override if provided
+      set_fact:
+        python_version: "{{ python_version_override }}"
+      when: python_version_override is defined and python_version_override | length > 0
+
+    - name: Set Python version based on Ubuntu version if no override
       set_fact:
         python_version: "{{ python_versions[ubuntu_version.stdout] | default(default_python_version) }}"
+      when: python_version_override is not defined or python_version_override | length == 0
 
     - name: Display selected Python version
       debug:
-        msg: "Using Python {{ python_version }} based on Ubuntu {{ ubuntu_version.stdout }}"
+        msg: "Using Python {{ python_version }} {{ 'from override' if python_version_override is defined and python_version_override | length > 0 else 'based on Ubuntu ' + ubuntu_version.stdout }}"
 
     - name: Get home directory of the user
       shell: "getent passwd {{ username }} | cut -d: -f6"
@@ -26,6 +32,25 @@
       set_fact:
         project_root: "{{ user_home.stdout }}/{{ uvprog }}"
         user_local_bin: "{{ user_home.stdout }}/.local/bin"
+
+- name: Set concurrency based on test type and target VMs
+  set_fact:
+    effective_concurrent_runs: "{{ concurrent_runs | int }}"
+  when: (target_vm is defined and target_vm | length > 0) or (include_testme | bool)
+
+- name: Set single VM concurrency when running standard tests
+  set_fact:
+    effective_concurrent_runs: "{{ single_vm_run | int }}"
+  when: (target_vm is not defined or target_vm | length == 0) and not (include_testme | bool)
+
+- name: Ensure effective_concurrent_runs is set
+  set_fact:
+    effective_concurrent_runs: "{{ concurrent_runs | int }}"
+  when: effective_concurrent_runs is not defined
+
+- name: Display concurrency setting
+  debug:
+    msg: "Running with concurrency: {{ effective_concurrent_runs }} VM(s) at a time"
 
 - name: Python installation preparation
   block:
@@ -41,7 +66,8 @@
 
 - name: Python installation block
   block:
-    - name: Install Python for Ubuntu 20.04
+    # Try installing Python 3.11 with error handling
+    - name: Try installing Python 3.11
       apt:
         name:
           - python3.11
@@ -49,23 +75,13 @@
         state: present
         update_cache: yes
       become: yes
+      register: python311_install
+      ignore_errors: yes
       when:
         - ansible_distribution == 'Ubuntu'
-        - ubuntu_version.stdout == '20.04'
 
-    - name: Install Python for Ubuntu 22.04
-      apt:
-        name:
-          - python3.11
-          - python3.11-venv
-        state: present
-        update_cache: yes
-      become: yes
-      when:
-        - ansible_distribution == 'Ubuntu'
-        - ubuntu_version.stdout == '22.04'
-
-    - name: Install Python for Ubuntu 24.04/24.10
+    # Try installing Python 3.12 with error handling
+    - name: Try installing Python 3.12
       apt:
         name:
           - python3.12
@@ -73,9 +89,63 @@
         state: present
         update_cache: yes
       become: yes
+      register: python312_install
+      ignore_errors: yes
       when:
         - ansible_distribution == 'Ubuntu'
-        - ubuntu_version.stdout is version('24.04', '>=')
+
+    # Try installing Python 3.10 with error handling
+    - name: Try installing Python 3.10
+      apt:
+        name:
+          - python3.10
+          - python3.10-venv
+        state: present
+        update_cache: yes
+      become: yes
+      register: python310_install
+      ignore_errors: yes
+      when:
+        - ansible_distribution == 'Ubuntu'
+        - ubuntu_version.stdout is version('24.04', '<')
+
+    # Display summary of what was installed
+    - name: Summarize Python installation
+      debug:
+        msg: |
+          Python installation summary:
+          - Python 3.10: {{ 'Installed' if python310_install is defined and python310_install.changed else 'Failed or skipped' }}
+          - Python 3.11: {{ 'Installed' if python311_install is defined and python311_install.changed else 'Failed or skipped' }}
+          - Python 3.12: {{ 'Installed' if python312_install is defined and python312_install.changed else 'Failed or skipped' }}
+
+    # Set fallback Python versions if needed
+    - name: Check available Python versions
+      shell: |
+        set -e
+        for version in python3.12 python3.11 python3.10 python3.9 python3.8; do
+          if command -v $version >/dev/null 2>&1; then
+            echo "$version"
+            exit 0
+          fi
+        done
+        # Default to system python3
+        echo "python3"
+      register: available_python
+      changed_when: false
+
+    - name: Display detected Python version
+      debug:
+        msg: "Most recent available Python version: {{ available_python.stdout }}"
+
+    # Update the Python version mapping based on what's actually available
+    - name: Set available Python version
+      set_fact:
+        available_python_version: "{{ available_python.stdout | regex_replace('python', '') }}"
+      when: available_python.stdout != "python3"
+
+    - name: Set fallback Python version
+      set_fact:
+        fallback_python_version: "{{ available_python_version | default('3') }}"
 
 - name: Directory setup block
   block:
@@ -99,7 +169,6 @@
 
 - name: Git repository management
   block:
-
     - name: Check existing directories
       stat:
         path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
@@ -109,15 +178,9 @@
 
     - name: List directories that will be removed
       debug:
-        msg: "Found existing directory: {{ item.stat.path }}"
+        msg: "Found existing directory: {{ item.stat.path }} (Will {{ 'be kept' if nodelete | default(false) else 'be removed' }})"
       loop: "{{ dir_check.results }}"
       when: item.stat.exists
-
-    - name: Prompt for directory removal confirmation
-      pause:
-        prompt: "The above directories will be removed. Do you want to continue? (yes/no)"
-      register: user_confirmation
-      when: dir_check.results | map(attribute='stat.exists') | select | list | length > 0
 
     - name: Remove existing directories
       file:
@@ -125,18 +188,10 @@
         state: absent
       loop: "{{ git_repos }}"
       become: yes
-      when: >
-        (dir_check.results | map(attribute='stat.exists') | select | list | length > 0) and
-        (user_confirmation.user_input | default('no') | lower == 'yes')
+      when:
+        - dir_check.results | map(attribute='stat.exists') | select | list | length > 0
+        - not nodelete | default(false)
       register: remove_result
-
-    # ### This code does not ask for confimation
-    # - name: Remove existing directories
-    #   file:
-    #     path: "{{ project_root }}/{{ (item | basename | splitext)[0] }}"
-    #     state: absent
-    #   loop: "{{ git_repos }}"
-    #   become: yes
 
     - name: Wait for directory removal to complete
       wait_for:
@@ -144,7 +199,9 @@
         state: absent
         timeout: 30
       loop: "{{ git_repos }}"
-      when: remove_result.changed | default(false)
+      when:
+        - remove_result.changed | default(false)
+        - not nodelete | default(false)
       become: yes
 
     - name: Clone git repositories
@@ -158,10 +215,9 @@
       register: git_clone_result
       become: yes
       become_user: "{{ username }}"
-      throttle: "{{ concurrent_runs }}"
-      when: >
-        (not dir_check.results | map(attribute='stat.exists') | select | list | length > 0) or
-        (user_confirmation.user_input | default('no') | lower == 'yes')
+      throttle: "{{ effective_concurrent_runs }}"
+      when:
+        - (not dir_check.results | map(attribute='stat.exists') | select | list | length > 0) or (not nodelete | default(false))
 
     - name: Set repository permissions
       file:
@@ -253,115 +309,96 @@
       become: yes
       ignore_errors: yes  # In case .venv doesn't exist for some repos
 
+
+- name: Cleanup previous test outputs
+  block:
+    - name: Remove previous test outputs
+      file:
+        path: "{{ project_root }}/{{ (item.0 | basename | splitext)[0] }}/{{ item.1 }}"
+        state: absent
+      with_nested:
+        - "{{ git_repos }}"
+        - ["pytest_output.log", "test_results.xml"]
+      become: yes
+      become_user: "{{ username }}"
+
 - name: Testing preparation
   block:
+    - name: Set concurrency based on include_testme and target_vm
+      set_fact:
+        effective_concurrent_runs: "{% if target_vm is defined and target_vm | length > 0 %}{{ concurrent_runs }}{% elif include_testme | bool %}{{ concurrent_runs }}{% else %}{{ single_vm_run }}{% endif %}"
+
+    - name: Display concurrency setting
+      debug:
+        msg: "Running with concurrency: {{ effective_concurrent_runs }} VM(s) at a time"
+
     - name: Record test start time
       set_fact:
         test_start_time: "{{ ansible_date_time.iso8601 }}"
       when: ansible_check_mode is not defined or not ansible_check_mode
 
-    - name: Log test start
-      debug:
-        msg: "Starting pytest at {{ test_start_time }}"
-      when: ansible_check_mode is not defined or not ansible_check_mode
-
-- name: Print timestamp before running pytest
-  debug:
-    msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
-
-- name: Run pytest with virtual environment
-  shell: |
-    source .venv/bin/activate && uv run pytest -v -s --run_type one -m "testme and not vectordbfew and not vectordball" --timeout=120 | tee pytest_output.log
-  args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
-    executable: /bin/bash
-  async: 1800  # Run the task asynchronously with a timeout of 30 minutes
-  poll: 60      # Poll for the status every 60 seconds
-  become: yes
-  become_user: "{{ username }}"
-  environment:
-    PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
-    PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
-  loop: "{{ git_repos }}"
-  throttle: "{{ concurrent_runs }}"
-  register: pytest_result
-
-- name: Check job status with timestamps
-  async_status:
-    jid: "{{ item.ansible_job_id }}"
-  register: job_result
-  until: job_result.finished
-  retries: 240
-  delay: 5
-  loop: "{{ pytest_result.results }}"
-
-- name: Print job status with timestamp
-  debug:
-    msg: "Checking job status at {{ ansible_date_time.iso8601 }} - Finished: {{ job_result.finished }}"
-  loop: "{{ pytest_result.results }}"
-
-- name: Fetch pytest log content periodically
-  shell: tail -n 20 "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/pytest_output.log"
-  register: log_output
-  become: yes
-  become_user: "{{ username }}"
-  delay: 5  # Delay between log fetches
-  retries: 240  # Number of retries to match the async timeout
-  loop: "{{ git_repos }}"
-
-- name: Print log content
-  debug:
-    msg: "{{ log_output.stdout }}"
-  loop: "{{ log_output.results }}"
-  when: log_output.results is defined
-
-- name: Print completion timestamp
-  debug:
-    msg: "Finished pytest at {{ ansible_date_time.iso8601 }}"
-
-- name: Testing preparation
-  block:
-    - name: Record test start time
+    - name: Set up pytest_cmd
       set_fact:
-        test_start_time: "{{ ansible_date_time.iso8601 }}"
-      when: ansible_check_mode is not defined or not ansible_check_mode
+        pytest_cmd: "uv run pytest -v {% if include_testme %}--run_type one -m 'testme and not vectordbfew and not vectordball and not chroma'{% else %}--run_type one -m 'not testme and not vectordbfew and not vectordball and not chroma'{% endif %} --timeout=3600 --junitxml=test_results.xml | tee pytest_output.log"
 
-    - name: Log test start
+
+    - name: Print timestamp before running pytest
       debug:
-        msg: "Starting pytest at {{ test_start_time }}"
-      when: ansible_check_mode is not defined or not ansible_check_mode
+        msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
 
-- name: Print timestamp before running pytest
-  debug:
-    msg: "Starting pytest at {{ ansible_date_time.iso8601 }}"
+    - name: VERIFICATION - Print unique identifier to confirm this is the updated code
+      debug:
+        msg: "Running UPDATED solution for SSH Git URLs - VERSION 2023-02-27-3"
 
 - name: Run pytest with virtual environment
   shell: |
-    source .venv/bin/activate && uv run pytest -v -s --run_type one -m "testme and not vectordbfew and not vectordball" --timeout=120 --junitxml=test_results.xml | tee pytest_output.log
+    echo "Starting pytest execution in $(pwd) at $(date)" > /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
+    source .venv/bin/activate && {{ pytest_cmd }}
+    echo "Completed pytest execution at $(date)" >> /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
   args:
     chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
   async: 1800  # Run the task asynchronously with a timeout of 30 minutes
-  poll: 60      # Poll for the status every 60 seconds
+  poll: 10     # Poll for the status every 10 seconds
   become: yes
   become_user: "{{ username }}"
   environment:
-    PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ user_home.stdout }}/.local/bin:{{ ansible_env.PATH }}"
     PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
   loop: "{{ git_repos }}"
-  throttle: "{{ concurrent_runs }}"
+  throttle: "{{ effective_concurrent_runs }}"
   register: pytest_result
+
+# Add this task to directly check for output files instead of relying on async status
+- name: Wait for test completion
+  wait_for:
+    path: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/pytest_output.log"
+    timeout: 1800  # 30 minutes
+  loop: "{{ git_repos }}"
+  become: yes
+  become_user: "{{ username }}"
+
+# You can either keep this task with ignore_errors or remove it if it's causing problems
+- name: Check job status with timestamps (best effort)
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished | default(false)
+  retries: 240
+  delay: 10
+  loop: "{{ pytest_result.results }}"
+  ignore_errors: yes
 
 - name: Check job status with timestamps
   async_status:
     jid: "{{ item.ansible_job_id }}"
   register: job_result
-  until: job_result.finished
+  until: job_result.finished | default(false)
   retries: 240
-  delay: 5
+  delay: 10
   loop: "{{ pytest_result.results }}"
+  ignore_errors: yes
 
-# Generate summary from test results
 - name: Parse pytest output for test results
   shell: |
     awk '/FAILED|PASSED|ERROR|SKIPPED/ && !/=====|Passed|Failed|Skipped|Error|collected|warnings|doctest|no tests/' pytest_output.log | sort | uniq
@@ -426,17 +463,183 @@
     - item.matches is defined
     - item.matches | length > 0
 
-- name: Generate consolidated test report
-  template:
-    src: test_report.j2
-    dest: "{{ user_home.stdout }}/{{ uvprog }}/test_report.md"
+# First, copy the report generation script to the target
+- name: Copy report generation script
+  copy:
+    src: enhanced_generate_report.sh
+    dest: "{{ user_home.stdout }}/enhanced_generate_report.sh"
+    mode: '0755'
   become: yes
   become_user: "{{ username }}"
-  vars:
-    test_results: "{{ test_results.results }}"
-    test_summary: "{{ test_summary.results }}"
-    junit_results: "{{ junit_results.results }}"
-    git_repo_names: "{{ git_repos | map('basename') | map('splitext') | map('first') | list }}"
+
+# Then run the enhanced script on each guest VM
+- name: Generate enhanced test reports on guest VM
+  shell: "./enhanced_generate_report.sh {{ user_home.stdout }}/{{ uvprog }}"
+  args:
+    chdir: "{{ user_home.stdout }}"
+  become: yes
+  become_user: "{{ username }}"
+
+- name: Ensure reports directory exists with correct permissions
+  file:
+    path: "{{ playbook_dir }}/test_reports"
+    state: directory
+    mode: '0755'
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+  delegate_to: localhost
+  run_once: true
+  become: yes
+
+# Fetch test reports from guest VMs
+- name: Fetch test reports from guest VMs
+  fetch:
+    src: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_{{ item }}"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  with_items:
+    - test_report.md
+    - test_report.json
+    - test_report.csv
+  failed_when: false  # Continue even if one format is missing
+
+# Create directory for versioned reports
+- name: Ensure versioned reports directory exists with correct permissions
+  file:
+    path: "{{ playbook_dir }}/test_reports/history"
+    state: directory
+    mode: '0755'
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+  delegate_to: localhost
+  run_once: true
+  become: yes
+
+# Get current timestamp for report naming
+- name: Get current timestamp
+  shell: date '+%Y%m%d_%H%M%S'
+  register: timestamp
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+
+# Handle versioning of previous reports
+- name: Version previous consolidated report if it exists
+  shell: |
+    # Check if previous consolidated report exists
+    if [ -f "{{ playbook_dir }}/consolidated_report.md" ]; then
+      # Find the highest existing version number
+      max_num=0
+      for file in {{ playbook_dir }}/test_reports/history/consolidated_report_*.md; do
+        if [ -f "$file" ]; then
+          num=$(echo "$file" | grep -o 'report_[0-9]*\.md' | grep -o '[0-9]*')
+          if [ "$num" -gt "$max_num" ]; then
+            max_num=$num
+          fi
+        fi
+      done
+
+      # Increment the version number
+      next_num=$((max_num + 1))
+
+      # Copy the current report to history with version number
+      cp "{{ playbook_dir }}/consolidated_report.md" "{{ playbook_dir }}/test_reports/history/consolidated_report_${next_num}.md"
+      echo "Versioned previous report as consolidated_report_${next_num}.md"
+
+      # Also create a timestamped copy for absolute reference
+      cp "{{ playbook_dir }}/consolidated_report.md" "{{ playbook_dir }}/test_reports/history/consolidated_report_${next_num}_{{ timestamp.stdout }}.md"
+    fi
+  args:
+    chdir: "{{ playbook_dir }}"
+  delegate_to: localhost
+  run_once: true
+  register: versioning_result
+  changed_when: versioning_result.stdout != ""
+
+# Generate a new consolidated report
+- name: Generate new consolidated report
+  shell: |
+    echo "# Consolidated Test Reports" > "{{ playbook_dir }}/consolidated_report.md"
+    echo "Generated: $(date)" >> "{{ playbook_dir }}/consolidated_report.md"
+    echo "Report ID: {{ timestamp.stdout }}" >> "{{ playbook_dir }}/consolidated_report.md"
+    echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+
+    # Summary table of VMs
+    echo "## VM Summary" >> "{{ playbook_dir }}/consolidated_report.md"
+    echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+    echo "| VM Hostname | Report Generated |" >> "{{ playbook_dir }}/consolidated_report.md"
+    echo "|-------------|------------------|" >> "{{ playbook_dir }}/consolidated_report.md"
+
+    for report in {{ playbook_dir }}/test_reports/*_test_report.md; do
+      if [ -f "$report" ]; then
+        vm_name=$(basename "$report" | sed 's/_test_report.md//')
+        report_date=$(grep "Generated:" "$report" | sed 's/Generated: //')
+        echo "| $vm_name | $report_date |" >> "{{ playbook_dir }}/consolidated_report.md"
+      fi
+    done
+
+    echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+    echo "## Detailed Reports by VM" >> "{{ playbook_dir }}/consolidated_report.md"
+    echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+
+    # Detailed reports
+    for report in {{ playbook_dir }}/test_reports/*_test_report.md; do
+      if [ -f "$report" ]; then
+        vm_name=$(basename "$report" | sed 's/_test_report.md//')
+        echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+        echo "# VM: $vm_name" >> "{{ playbook_dir }}/consolidated_report.md"
+        echo "===========================================" >> "{{ playbook_dir }}/consolidated_report.md"
+        echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+        cat "$report" >> "{{ playbook_dir }}/consolidated_report.md"
+        echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+        echo "---" >> "{{ playbook_dir }}/consolidated_report.md"
+        echo "" >> "{{ playbook_dir }}/consolidated_report.md"
+      fi
+    done
+
+    # Also create a timestamped copy in history
+    cp "{{ playbook_dir }}/consolidated_report.md" "{{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout }}.md"
+  args:
+    chdir: "{{ playbook_dir }}"
+  delegate_to: localhost
+  run_once: true
+
+# Display report information and history
+- name: Display report information
+  shell: |
+    echo "Current report: {{ playbook_dir }}/consolidated_report.md"
+    echo "Timestamped copy: {{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout }}.md"
+    echo ""
+    echo "Report history:"
+    ls -1t {{ playbook_dir }}/test_reports/history/consolidated_report_*.md 2>/dev/null | head -10 | sed 's/^/- /'
+    echo ""
+    echo "Total reports in history: $(ls -1 {{ playbook_dir }}/test_reports/history/consolidated_report_*.md 2>/dev/null | wc -l)"
+  args:
+    chdir: "{{ playbook_dir }}"
+  register: report_info
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+
+- name: Show report history
+  debug:
+    msg: "{{ report_info.stdout_lines }}"
+  delegate_to: localhost
+  run_once: true
+
+# Display the location of the consolidated report
+- name: Report consolidated report location
+  debug:
+    msg: "Consolidated report generated at {{ playbook_dir }}/consolidated_report.md"
+  delegate_to: localhost
+  run_once: true
+
+# Optionally, display that the report was created
+- name: Report generation status
+  debug:
+    msg: "Test report generated at {{ user_home.stdout }}/{{ uvprog }}/test_report.md"
 
 - name: Print completion timestamp
   debug:

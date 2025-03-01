@@ -1,13 +1,16 @@
----
-
 # role_load_uvprog2025/defaults/main.yml
 
-# Default Python version if OS detection fails
+---
+
+# Default configurations that users might want to override
 default_python_version: "3.12"
 concurrent_runs: 4
 uvprog: "uvprog2025"
 default_file_mode: "0755"
 default_restricted_mode: "0600"
+include_testme: true
+nodelete: false
+single_vm_run: 1  # Use this when running on a single VM at a time
 
 # Python versions for different Ubuntu releases
 python_versions:
@@ -16,6 +19,7 @@ python_versions:
   "24.04": "3.12"
   "24.10": "3.12"
 
+# Git repositories to clone
 git_repos:
   - https://github.com/kennethwork101/Building_Large_Language_Model_Applications.git
   - https://github.com/kennethwork101/Deeplearning_Langchain_Llm_Course.git
@@ -24,3 +28,5 @@ git_repos:
   - https://github.com/kennethwork101/Learning_Langchain.git
   - https://github.com/kennethwork101/Ollama_Downloads.git
 
+# Optional Python version override (empty by default)
+python_version_override: ""

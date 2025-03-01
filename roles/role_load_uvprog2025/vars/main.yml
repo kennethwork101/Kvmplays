@@ -1,6 +1,17 @@
----
-
 # role_load_uvprog2025/vars/main.yml
 
+---
+
+# Internal variables that shouldn't be overridden by users
+# These are computed during playbook execution
 user_local_bin: "{{ user_home.stdout }}/.local/bin"
 project_root: "{{ user_home.stdout }}/{{ uvprog }}"
+
+# Python packages to install
+python_packages:
+  - python3.10
+  - python3.10-venv
+  - python3.11
+  - python3.11-venv
+  - python3.12
+  - python3.12-venv

@@ -1,10 +1,25 @@
 ---
 
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=false"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=false"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=false"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']"   -e "include_testme=false"
+
 #    time ansible-playbook load_uvprog2025.yml
-#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']"
-#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']"
-#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']"
-#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=true"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=true"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=true"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']"   -e "include_testme=true"
+
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=false"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=false"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=false"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']"   -e "include_testme=false"
+
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=true"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=true"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=true"
+#    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']"   -e "include_testme=true"
 
 - name: Bring up VMs
   hosts: kvm_host
