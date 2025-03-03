@@ -22,6 +22,17 @@
 #    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=true"
 #    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a2-4-u2410']"   -e "include_testme=true"
 
+
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=false"
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=false"
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=false"
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-4-u2410']"   -e "include_testme=false"
+
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=true"
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=true"
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=true"
+#    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-4-u2410']"   -e "include_testme=true"
+
 - name: Bring up VMs
   hosts: kvm_host
   become: true
