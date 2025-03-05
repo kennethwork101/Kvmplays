@@ -66,3 +66,4 @@
     uvprog: "uvprog2025"
   roles:
     - role_load_uvprog2025
+    - role_pytest_reports

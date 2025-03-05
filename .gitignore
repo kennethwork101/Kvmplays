@@ -6,8 +6,10 @@ __pycache__/
 *.swp
 .venv
 .vscode/
-consolidated_report.md
+consolidated_report.md*
+enhanced_generate_report.sh-*
 README.md-*
+role_pytest_reports.tar.gz
 typescript
-test_reports*
+test_report*
 wheels/

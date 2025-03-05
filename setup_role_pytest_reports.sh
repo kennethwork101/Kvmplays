@@ -49,14 +49,14 @@ echo "" >> test_report.md
 if [ -f "test_results.xml" ]; then
     echo "## XML Test Results" >> test_report.md
     echo "" >> test_report.md
-    
+
     # Extract basic statistics using grep and sed
     total_tests=$(grep -o 'tests="[0-9]*"' test_results.xml | head -1 | sed 's/tests="\([0-9]*\)"/\1/')
     failures=$(grep -o 'failures="[0-9]*"' test_results.xml | head -1 | sed 's/failures="\([0-9]*\)"/\1/')
     errors=$(grep -o 'errors="[0-9]*"' test_results.xml | head -1 | sed 's/errors="\([0-9]*\)"/\1/')
     skipped=$(grep -o 'skipped="[0-9]*"' test_results.xml | head -1 | sed 's/skipped="\([0-9]*\)"/\1/')
     time=$(grep -o 'time="[0-9.]*"' test_results.xml | head -1 | sed 's/time="\([0-9.]*\)"/\1/')
-    
+
     # Write summary table
     echo "### Summary" >> test_report.md
     echo "" >> test_report.md
@@ -69,16 +69,16 @@ if [ -f "test_results.xml" ]; then
     echo "| Skipped | $skipped |" >> test_report.md
     echo "| Time | ${time}s |" >> test_report.md
     echo "" >> test_report.md
-    
+
     # List failed tests if any
     if [ "$failures" -gt 0 ] || [ "$errors" -gt 0 ]; then
         echo "### Failed Tests" >> test_report.md
         echo "" >> test_report.md
         echo "| Test | Time | Failure Message |" >> test_report.md
         echo "|------|------|-----------------|" >> test_report.md
-        
+
         # Extract failed test details
-        grep -A 5 '<failure' test_results.xml | grep -v "</failure>" | grep -v "--" | 
+        grep -A 5 '<failure' test_results.xml | grep -v "</failure>" | grep -v "--" |
         while read -r line; do
             if [[ $line =~ name=\"([^\"]+)\" ]]; then
                 test_name="${BASH_REMATCH[1]}"
@@ -95,7 +95,7 @@ fi
 if [ -f "pytest_output.log" ]; then
     echo "## Pytest Output" >> test_report.md
     echo "" >> test_report.md
-    
+
     # Extract summary
     summary=$(grep "= .* failed, .* passed" pytest_output.log | tail -1)
     if [ -n "$summary" ]; then
@@ -106,7 +106,7 @@ if [ -f "pytest_output.log" ]; then
         echo "```" >> test_report.md
         echo "" >> test_report.md
     fi
-    
+
     # Extract failures
     failures=$(grep -A20 "= FAILURES =" pytest_output.log)
     if [ -n "$failures" ]; then
@@ -319,15 +319,19 @@ except Exception as e:
   failed_when: "'Error formatting XML' in format_results.stderr"
 
 - name: Copy formatted XML for reporting (optional)
-  copy:
-    src: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results.xml"
-    dest: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results_formatted.xml"
-    remote_src: yes
+  shell: |
+    if [ -f test_results.xml ]; then
+      cp test_results.xml test_results_formatted.xml
+    fi
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item.item | basename | splitext)[0] }}"
+    executable: /bin/bash
   become: yes
   become_user: "{{ username }}"
-  loop: "{{ git_repos }}"
-  when: format_results.results[loop_index].stdout == "XML formatted successfully"
+  loop: "{{ format_results.results }}"
+  when: "'XML formatted successfully' in item.stdout"
   failed_when: false
+  changed_when: false
 EOF
 
 # Create tasks/generate_reports.yml
@@ -572,7 +576,7 @@ None.
 - name: Run pytest and generate reports
   hosts: test_vms
   become: yes
-  
+
   vars:
     uvprog: "uvprog2025"
     format_xml: true
@@ -613,7 +617,7 @@ cat > example_playbook.yml << 'EOF'
 - name: Run pytest and generate reports
   hosts: test_vms
   become: yes
-  
+
   # Variables can be defined here or in group_vars/host_vars
   vars:
     uvprog: "uvprog2025"

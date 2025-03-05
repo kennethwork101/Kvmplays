@@ -56,8 +56,42 @@
         - check_status.stdout != "running"
       with_items: "{{ filtered_vms }}"
 
+    - name: Skip IP check and directly test SSH connectivity
+      debug:
+        msg: "Skipping domifaddr check and proceeding directly to SSH connectivity test"
+
+    - name: Pause briefly to allow VM network services to start
+      pause:
+        seconds: 10
+      when: item.stdout != "running"
+      with_items: "{{ filtered_vms }}"
+
+    - name: Wait for SSH to be available on all VMs
+      wait_for:
+        host: "{{ hostvars[item.item]['ansible_host'] }}"
+        port: 22
+        state: started
+        delay: 5
+        timeout: 300
+      delegate_to: localhost
+      with_items: "{{ filtered_vms }}"
+
+    - name: Test SSH connection to ensure VMs are truly ready
+      ping:
+      delegate_to: "{{ item.item }}"
+      register: ping_result
+      retries: 10
+      delay: 5
+      until: ping_result is successful
+      with_items: "{{ filtered_vms }}"
+
+    - name: Final VM readiness report
+      debug:
+        msg: "VM {{ item.item.item }} is fully booted and SSH is ready"
+      with_items: "{{ ssh_test.results }}"
+      when: ssh_test.results is defined
+
   rescue:
     - name: Log failure details
       debug:
-        msg: "Failed to start VMs. Check virsh error messages for details."
-
+        msg: "Failed to start VMs or establish SSH connections. Check error messages for details."

@@ -1,0 +1,28 @@
+---
+# Main tasks file for role_pytest_reports
+
+# Include task files
+- name: Gather test results
+  import_tasks: gather_results.yml
+  tags:
+    - gather
+    - always
+
+- name: Format XML test results
+  import_tasks: format_xml.yml
+  tags:
+    - format
+    - xml
+  when: format_xml | bool
+
+- name: Generate test reports
+  import_tasks: generate_reports.yml
+  tags:
+    - generate
+    - reports
+
+- name: Consolidate test reports
+  import_tasks: consolidate.yml
+  tags:
+    - consolidate
+    - reports

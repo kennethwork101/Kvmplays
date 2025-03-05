@@ -1,0 +1,84 @@
+---
+# Tasks for formatting XML test results
+
+- name: Ensure python3-lxml is installed
+  become: true
+  package:
+    name: python3-lxml
+    state: present
+  when: ansible_os_family in ['Debian', 'RedHat']
+
+- name: Create temporary Python formatting script
+  copy:
+    dest: "{{ user_home.stdout }}/format_xml.py"
+    mode: 0755
+    content: |
+      #!/usr/bin/env python3
+      import sys
+      from lxml import etree
+
+      try:
+          parser = etree.XMLParser(remove_blank_text=True)
+          tree = etree.parse("test_results.xml", parser)
+          with open("test_results.xml", "wb") as f:
+              f.write(etree.tostring(tree, encoding="utf-8", xml_declaration=True, pretty_print=True))
+          print("XML formatted successfully")
+      except Exception as e:
+          print(f"Error formatting XML: {e}")
+          sys.exit(1)
+  become: yes
+  become_user: "{{ username }}"
+
+- name: Backup original XML file
+  shell: |
+    if [ -f test_results.xml ]; then
+      cp test_results.xml test_results.xml.bak
+    fi
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    executable: /bin/bash
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ git_repos }}"
+  when: xml_backup | bool
+  failed_when: false
+  changed_when: false
+
+- name: Format XML test results
+  shell: |
+    if [ -f test_results.xml ]; then
+      python3 {{ user_home.stdout }}/format_xml.py
+    else
+      echo "No test_results.xml file found"
+    fi
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    executable: /bin/bash
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ git_repos }}"
+  register: format_results
+  changed_when: format_results.stdout == "XML formatted successfully"
+  failed_when: "'Error formatting XML' in format_results.stderr"
+
+- name: Remove temporary Python script
+  file:
+    path: "{{ user_home.stdout }}/format_xml.py"
+    state: absent
+  become: yes
+  become_user: "{{ username }}"
+
+- name: Copy formatted XML for reporting (optional)
+  shell: |
+    if [ -f test_results.xml ]; then
+      cp test_results.xml test_results_formatted.xml
+    fi
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item.item | basename | splitext)[0] }}"
+    executable: /bin/bash
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ format_results.results }}"
+  when: "'XML formatted successfully' in item.stdout"
+  failed_when: false
+  changed_when: false

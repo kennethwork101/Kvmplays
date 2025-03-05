@@ -1,0 +1,21 @@
+---
+# Example playbook for using the role_pytest_reports role
+
+- name: Run pytest and generate reports
+  hosts: test_vms
+  become: yes
+  
+  # Variables can be defined here or in group_vars/host_vars
+  vars:
+    uvprog: "uvprog2025"
+    format_xml: true
+
+  # Include the role
+  roles:
+    - role: role_pytest_reports
+
+  # Any post-tasks can go here
+  post_tasks:
+    - name: Notify completion
+      debug:
+        msg: "Pytest report processing completed successfully"

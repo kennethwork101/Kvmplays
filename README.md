@@ -39,7 +39,7 @@ Here is our test setup.
   - [kvm_guest_vms.yml Usage](#kvm_guest_vmsyml-usage)
   - [load_uvprog2025.yml Usage](#load_uvprog2025yml-usage)
   - [Available Options](#available-options)
-  
+
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
 ## Install a new OS manually
@@ -131,7 +131,7 @@ sudo virt-install \
 sudo virt-clone --original kvm-master-a1-1-u2004-6 --name kvm-master-a1-1-u2004-6-clone --file /var/lib/libvirt/images/kvm-master-a1-1-u2004-6-clone.qcow2
 sudo virt-clone --original kvm-master-a1-2-u2204-5 --name kvm-master-a1-2-u2204-5-clone --file /var/lib/libvirt/images/kvm-master-a1-2-u2204-5-clone.qcow2
 sudo virt-clone --original kvm-master-a1-3-u2404-1 --name kvm-master-a1-3-u2404-1-clone --file /var/lib/libvirt/images/kvm-master-a1-3-u2404-1-clone.qcow2
-sudo virt-clone --original kvm-master-a1-4-u2410 --name kvm-master-a1-4-u2410-clone     --file /var/lib/libvirt/images/kvm-master-a1-4-u2410-clone.qcow2
+sudo virt-clone --original kvm-master-a1-4-u2410   --name kvm-master-a1-4-u2410-clone   --file /var/lib/libvirt/images/kvm-master-a1-4-u2410-clone.qcow2
 ```
 
 --------------------------------------------------------------------------------------------------
@@ -221,22 +221,28 @@ It has a set of manual operations to configure the VMs templates.
 --------------------------------------------------------------------------------------------------
 ## Used the clone VM to clone a new VM for project (#virt-clone-1)
 
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ``bash
 sudo virt-clone --original kvm-master-a1-1-u2004-6-clone --name kvm-a1-1-u2004-6 --file /var/lib/libvirt/images/kvm-a1-1-u2004-6.qcow2
 sudo virt-clone --original kvm-master-a1-2-u2204-5-clone --name kvm-a1-2-u2204-5 --file /var/lib/libvirt/images/kvm-a1-2-u2204-5.qcow2
 sudo virt-clone --original kvm-master-a1-3-u2404-1-clone --name kvm-a1-3-u2404-1 --file /var/lib/libvirt/images/kvm-a1-3-u2404-1.qcow2
 sudo virt-clone --original kvm-master-a1-4-u2410-clone   --name kvm-a1-4-u2410   --file /var/lib/libvirt/images/kvm-a1-4-u2410.qcow2
 
+
 sudo virt-clone --original kvm-master-a1-1-u2004-6-clone --name kvm-a2-1-u2004-6 --file /var/lib/libvirt/images/kvm-a2-1-u2004-6.qcow2
 sudo virt-clone --original kvm-master-a1-2-u2204-5-clone --name kvm-a2-2-u2204-5 --file /var/lib/libvirt/images/kvm-a2-2-u2204-5.qcow2
 sudo virt-clone --original kvm-master-a1-3-u2404-1-clone --name kvm-a2-3-u2404-1 --file /var/lib/libvirt/images/kvm-a2-3-u2404-1.qcow2
 sudo virt-clone --original kvm-master-a1-4-u2410-clone   --name kvm-a2-4-u2410   --file /var/lib/libvirt/images/kvm-a2-4-u2410.qcow2
 
+
 sudo virt-clone --original kvm-master-a1-1-u2004-6-clone --name kvm-a3-1-u2004-6 --file /var/lib/libvirt/images/kvm-a3-1-u2004-6.qcow2
 sudo virt-clone --original kvm-master-a1-2-u2204-5-clone --name kvm-a3-2-u2204-5 --file /var/lib/libvirt/images/kvm-a3-2-u2204-5.qcow2
 sudo virt-clone --original kvm-master-a1-3-u2404-1-clone --name kvm-a3-3-u2404-1 --file /var/lib/libvirt/images/kvm-a3-3-u2404-1.qcow2
 sudo virt-clone --original kvm-master-a1-4-u2410-clone   --name kvm-a3-4-u2410   --file /var/lib/libvirt/images/kvm-a3-4-u2410.qcow2
+
+sudo virt-clone --original kvm-master-a1-1-u2004-6-clone --name kvm-a-big-u2004-6 --file /var/lib/libvirt/images/kvm-a-big-u2004-6.qcow2
+sudo virt-clone --original kvm-master-a1-2-u2204-5-clone --name kvm-a-big-u2204-5 --file /var/lib/libvirt/images/kvm-a-big-u2204-5.qcow2
+sudo virt-clone --original kvm-master-a1-3-u2404-1-clone --name kvm-a-big-u2404-1 --file /var/lib/libvirt/images/kvm-a-big-u2404-1.qcow2
+sudo virt-clone --original kvm-master-a1-4-u2410-clone   --name kvm-a-big-u2410   --file /var/lib/libvirt/images/kvm-a-big-u2410.qcow2
 ```
 
 
@@ -259,6 +265,11 @@ sudo virt-sysprep -d  kvm-a3-1-u2004-6 --hostname kvm-a3-1-u2004-6 --operations 
 sudo virt-sysprep -d  kvm-a3-2-u2204-5 --hostname kvm-a3-2-u2204-5 --operations defaults,-ssh-hostkeys,-ssh-userdir
 sudo virt-sysprep -d  kvm-a3-3-u2404-1 --hostname kvm-a3-3-u2404-1 --operations defaults,-ssh-hostkeys,-ssh-userdir
 sudo virt-sysprep -d  kvm-a3-4-u2410   --hostname kvm-a3-4-u2410   --operations defaults,-ssh-hostkeys,-ssh-userdir
+
+sudo virt-sysprep -d  kvm-a-big-u2004-6 --hostname kvm-a-big-u2004-6 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a-big-u2204-5 --hostname kvm-a-big-u2204-5 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a-big-u2404-1 --hostname kvm-a-big-u2404-1 --operations defaults,-ssh-hostkeys,-ssh-userdir
+sudo virt-sysprep -d  kvm-a-big-u2410   --hostname kvm-a-big-u2410   --operations defaults,-ssh-hostkeys,-ssh-userdir
 ```
 
 --------------------------------------------------------------------------------------------------
@@ -296,6 +307,12 @@ kvm-a3-4-u2410 ansible_host=192.168.1.55
 kvm_guests_group1
 kvm_guests_group2
 kvm_guests_group3
+
+[kvm_guests_a_big_group]
+kvm-a-big-u2004-6 ansible_host=192.168.1.13
+kvm-a-big-u2204-5 ansible_host=192.168.1.14
+kvm-a-big-u2404-1 ansible_host=192.168.1.15
+kvm-a-big-u2410   ansible_host=192.168.1.17
 ```
 
 --------------------------------------------------------------------------------------------------
@@ -318,6 +335,11 @@ ssh kenneth@kvm-a3-1-u2004-6.local
 ssh kenneth@kvm-a3-2-u2204-5.local
 ssh kenneth@kvm-a3-3-u2404-1.local
 ssh kenneth@kvm-a3-4-u2410.local
+
+ssh kenneth@kvm-a-big-u2004-6.local
+ssh kenneth@kvm-a-big-u2204-5.local
+ssh kenneth@kvm-a-big-u2404-1.local
+ssh kenneth@kvm-a-big-u2410.local
 ```
 
 --------------------------------------------------------------------------------------------------
@@ -340,6 +362,11 @@ ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a3-1-u2004-6.local'
 ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a3-2-u2204-5.local'
 ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a3-3-u2404-1.local'
 ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a3-4-u2410.local'
+
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a-big-u2004-6.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a-big-u2204-5.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a-big-u2404-1.local'
+ssh-keygen -f '/home/kenneth/.ssh/known_hosts' -R 'kvm-a-big-u2410.local'
 ```
 
 --------------------------------------------------------------------------------------------------
@@ -355,6 +382,7 @@ ssh kenneth@kvm-a3-1-u2004-6.local
 ansible kvm_guests_group1  -m ping
 ansible kvm_guests_group2  -m ping
 ansible kvm_guests_group3  -m ping
+ansible kvm_guests_a_big_group  -m ping
 ansible all -m ping
 ansible all  -m debug -a "var=ansible_host"
 time ansible-playbook kvm_guest_vms.yml
@@ -372,6 +400,7 @@ This playbook manages KVM guest VMs.
 1. Standard run:
 ```bash
 time ansible-playbook kvm_guest_vms.yml
+time ansible-playbook kvm_guest_vms.yml -e "include_testme=true"
 ```
 
 2. Run for specific target VMs:
@@ -391,6 +420,16 @@ time ansible-playbook kvm_guest_vms.yml -e "include_testme=true"
 time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=true"
 time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true"
 time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true"
+
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2004-6']" -e "include_testme=true"
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2204-5']" -e "include_testme=true"
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2404-1']" -e "include_testme=true"
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2410']"   -e "include_testme=true"
+
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2004-6']" -e "include_testme=false"
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2204-5']" -e "include_testme=false"
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2404-1']" -e "include_testme=false"
+time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a-big-u2410']"   -e "include_testme=false"
 ```
 
 At this point all the guest VMs are configured with required packages to run test
@@ -423,49 +462,65 @@ time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']"
 
 5. Control whether to include testme tests:
 ```bash
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true"
 time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"
 ```
 
 6. Combine multiple options:
 ```bash
 --------------------------------------------------------------------------------------------------
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
-
---------------------------------------------------------------------------------------------------
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
-
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
-
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
-
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=true"    -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=false"   -e "nodelete=false" -e "python_version_override=3.12"
 
 --------------------------------------------------------------------------------------------------
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true"    -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true"    -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=false"   -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=false"   -e "nodelete=false" -e "python_version_override=3.12"
+
+--------------------------------------------------------------------------------------------------
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true"    -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true"    -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=false"   -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=false"   -e "nodelete=false" -e "python_version_override=3.12"
+
+
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=true"  -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true"  -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"  -e "nodelete=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"  -e "nodelete=false" -e "python_version_override=3.12"
 ```
 
 --------------------------------------------------------------------------------------------------
@@ -482,8 +537,8 @@ time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -
 
 The playbooks include intelligent concurrency management:
 
-- When `target_vm` is specified: Tasks run on multiple VMs concurrently (up to 4 VMs at once)
-- When `include_testme=true`: Tasks run on multiple VMs concurrently (up to 4 VMs at once)
+- When `target_vm` is not specified: Tasks run on multiple VMs concurrently (up to 4 VMs at once)
+- When `include_testme=true`: Tasks run on multiple VMs concurrently (up to concurrent_runs number of VMs at once)
 - Otherwise: Tasks run on only one VM at a time for standard tests
 
 This behavior allows for faster execution when targeting specific VMs or running testme tests, while providing more controlled execution for standard test runs.

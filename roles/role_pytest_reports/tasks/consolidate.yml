@@ -1,0 +1,133 @@
+---
+# Tasks for consolidating test reports
+
+# Create directory for versioned reports
+- name: Ensure versioned reports directory exists with correct permissions
+  file:
+    path: "{{ reports_history_dir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+  delegate_to: localhost
+  run_once: true
+  become: yes
+
+# Get current timestamp for report naming
+- name: Get current timestamp
+  shell: date '+%Y%m%d_%H%M%S'
+  register: timestamp
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+
+# Handle versioning of previous reports
+- name: Version previous consolidated report if it exists
+  shell: |
+    # Check if previous consolidated report exists
+    if [ -f "{{ consolidated_report_path }}" ]; then
+      # Find the highest existing version number
+      max_num=0
+      for file in {{ reports_history_dir }}/consolidated_report_*.md; do
+        if [ -f "$file" ]; then
+          num=$(echo "$file" | grep -o 'report_[0-9]*\.md' | grep -o '[0-9]*')
+          if [ "$num" -gt "$max_num" ]; then
+            max_num=$num
+          fi
+        fi
+      done
+
+      # Increment the version number
+      next_num=$((max_num + 1))
+
+      # Copy the current report to history with version number
+      cp "{{ consolidated_report_path }}" "{{ reports_history_dir }}/consolidated_report_${next_num}.md"
+      echo "Versioned previous report as consolidated_report_${next_num}.md"
+
+      # Also create a timestamped copy for absolute reference
+      cp "{{ consolidated_report_path }}" "{{ reports_history_dir }}/consolidated_report_${next_num}_{{ timestamp.stdout }}.md"
+    fi
+  args:
+    chdir: "{{ playbook_dir }}"
+  delegate_to: localhost
+  run_once: true
+  register: versioning_result
+  changed_when: versioning_result.stdout != ""
+
+# Generate a new consolidated report
+- name: Generate new consolidated report
+  shell: |
+    echo "# Consolidated Test Reports" > "{{ consolidated_report_path }}"
+    echo "Generated: $(date)" >> "{{ consolidated_report_path }}"
+    echo "Report ID: {{ timestamp.stdout }}" >> "{{ consolidated_report_path }}"
+    echo "" >> "{{ consolidated_report_path }}"
+
+    # Summary table of VMs
+    echo "## VM Summary" >> "{{ consolidated_report_path }}"
+    echo "" >> "{{ consolidated_report_path }}"
+    echo "| VM Hostname | Report Generated |" >> "{{ consolidated_report_path }}"
+    echo "|-------------|------------------|" >> "{{ consolidated_report_path }}"
+
+    for report in {{ reports_dir }}/*_test_report.md; do
+      if [ -f "$report" ]; then
+        vm_name=$(basename "$report" | sed 's/_test_report.md//')
+        report_date=$(grep "Generated:" "$report" | sed 's/Generated: //')
+        echo "| $vm_name | $report_date |" >> "{{ consolidated_report_path }}"
+      fi
+    done
+
+    echo "" >> "{{ consolidated_report_path }}"
+    echo "## Detailed Reports by VM" >> "{{ consolidated_report_path }}"
+    echo "" >> "{{ consolidated_report_path }}"
+
+    # Detailed reports
+    for report in {{ reports_dir }}/*_test_report.md; do
+      if [ -f "$report" ]; then
+        vm_name=$(basename "$report" | sed 's/_test_report.md//')
+        echo "" >> "{{ consolidated_report_path }}"
+        echo "# VM: $vm_name" >> "{{ consolidated_report_path }}"
+        echo "===========================================" >> "{{ consolidated_report_path }}"
+        echo "" >> "{{ consolidated_report_path }}"
+        cat "$report" >> "{{ consolidated_report_path }}"
+        echo "" >> "{{ consolidated_report_path }}"
+        echo "---" >> "{{ consolidated_report_path }}"
+        echo "" >> "{{ consolidated_report_path }}"
+      fi
+    done
+
+    # Also create a timestamped copy in history
+    cp "{{ consolidated_report_path }}" "{{ reports_history_dir }}/consolidated_report_{{ timestamp.stdout }}.md"
+  args:
+    chdir: "{{ playbook_dir }}"
+  delegate_to: localhost
+  run_once: true
+
+# Display report information and history
+- name: Display report information
+  shell: |
+    echo "Current report: {{ consolidated_report_path }}"
+    echo "Timestamped copy: {{ reports_history_dir }}/consolidated_report_{{ timestamp.stdout }}.md"
+    echo ""
+    echo "Report history:"
+    ls -1t {{ reports_history_dir }}/consolidated_report_*.md 2>/dev/null | head -10 | sed 's/^/- /'
+    echo ""
+    echo "Total reports in history: $(ls -1 {{ reports_history_dir }}/consolidated_report_*.md 2>/dev/null | wc -l)"
+  args:
+    chdir: "{{ playbook_dir }}"
+  register: report_info
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+
+- name: Show report history
+  debug:
+    msg: "{{ report_info.stdout_lines }}"
+  delegate_to: localhost
+  run_once: true
+
+# Display the location of the consolidated report
+- name: Report consolidated report location
+  debug:
+    msg: "Consolidated report generated at {{ consolidated_report_path }}"
+  delegate_to: localhost
+  run_once: true

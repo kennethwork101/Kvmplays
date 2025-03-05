@@ -1,0 +1,18 @@
+---
+# Default variables for role_pytest_reports
+
+# Repository and path configuration
+uvprog: "uvprog2025"  # Project directory name
+
+# Report configuration
+reports_dir: "{{ playbook_dir }}/test_reports"
+reports_history_dir: "{{ reports_dir }}/history"
+consolidated_report_path: "{{ playbook_dir }}/consolidated_report.md"
+report_formats:
+  - md
+  - json
+  - csv
+
+# XML formatting configuration
+format_xml: true  # Set to false to disable XML formatting
+xml_backup: true  # Set to false to skip creating backup of original XML

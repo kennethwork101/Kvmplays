@@ -33,11 +33,45 @@ for DIR in $(find "$UVPROG_DIR" -name pytest_output.log -exec dirname {} \;); do
   echo "## $REPO_NAME" >> "$REPORT_MD"
   echo "" >> "$REPORT_MD"
 
-  # Test Results
+  # Test Results - MODIFIED SECTION
   echo "### Test Results" >> "$REPORT_MD"
   echo '```' >> "$REPORT_MD"
   if [ -f "$DIR/pytest_output.log" ]; then
-    awk '/FAILED|PASSED|ERROR|SKIPPED/ && !/=====|Passed|Failed|Skipped|Error|collected|warnings|doctest|no tests/' "$DIR/pytest_output.log" | sort | uniq >> "$REPORT_MD"
+    # Extract test results directly from XML first - this ensures all tests are reported
+    if [ -f "$DIR/test_results.xml" ]; then
+      # Extract testcase elements and format them for reporting
+      grep -o '<testcase[^>]*>' "$DIR/test_results.xml" | while read -r line; do
+        TEST_NAME=$(echo "$line" | grep -o 'name="[^"]*"' | sed 's/name="\([^"]*\)"/\1/')
+        TEST_CLASS=$(echo "$line" | grep -o 'classname="[^"]*"' | sed 's/classname="\([^"]*\)"/\1/')
+        TEST_FILE=$(echo "$TEST_CLASS" | sed 's/\./\//g')
+        
+        # Get the full testcase with possible failure/error/skipped tags
+        TESTCASE_IDX=$(grep -n "$line" "$DIR/test_results.xml" | cut -d: -f1)
+        NEXT_10_LINES=$(tail -n +$TESTCASE_IDX "$DIR/test_results.xml" | head -10)
+
+        # Determine test status
+        if echo "$NEXT_10_LINES" | grep -q '<failure'; then
+          STATUS="FAILED"
+        elif echo "$NEXT_10_LINES" | grep -q '<error'; then
+          STATUS="ERROR"
+        elif echo "$NEXT_10_LINES" | grep -q '<skipped'; then
+          STATUS="SKIPPED"
+        else
+          STATUS="PASSED"
+        fi
+        
+        # Print properly formatted test results
+        echo "$TEST_FILE::$TEST_NAME $STATUS" >> "$REPORT_MD"
+      done
+    else
+      # Fallback to log parsing if XML not available
+      # Modified to capture more test output patterns
+      grep -E "::test_|PASSED|FAILED|ERROR|SKIPPED" "$DIR/pytest_output.log" | 
+      grep -v "===" | 
+      grep -v "short test summary" | 
+      grep -v " seconds " |
+      grep -v "warnings in" >> "$REPORT_MD"
+    fi
   else
     echo "No pytest output found" >> "$REPORT_MD"
   fi
@@ -49,8 +83,13 @@ for DIR in $(find "$UVPROG_DIR" -name pytest_output.log -exec dirname {} \;); do
   echo '```' >> "$REPORT_MD"
   SUMMARY=""
   if [ -f "$DIR/pytest_output.log" ]; then
-    FAILURES=$(grep -A1 "= FAILURES =" "$DIR/pytest_output.log" 2>/dev/null || echo "No failures found")
-    STATS=$(grep "= .* failed, .* passed" "$DIR/pytest_output.log" 2>/dev/null || echo "Summary not found")
+    # Extract the test summary line with passed/failed counts
+    STATS=$(grep -E "[0-9]+ failed, [0-9]+ passed|[0-9]+ passed, [0-9]+ failed" "$DIR/pytest_output.log" | tail -1 || echo "Summary not found")
+    
+    # Extract failure details but limit to a reasonable amount
+    FAILURES=$(grep -A1 "= FAILURES =" "$DIR/pytest_output.log" 2>/dev/null && 
+               grep -A2 "_{10,}" "$DIR/pytest_output.log" | head -20 || 
+               echo "No failures found")
 
     echo "$FAILURES" >> "$REPORT_MD"
     echo "$STATS" >> "$REPORT_MD"
@@ -69,20 +108,27 @@ for DIR in $(find "$UVPROG_DIR" -name pytest_output.log -exec dirname {} \;); do
     echo "### Statistics" >> "$REPORT_MD"
 
     # Extract data from XML using basic tools
-    TESTS=$(grep -o 'tests="[0-9]*"' "$DIR/test_results.xml" | grep -o '[0-9]*')
-    FAILURES=$(grep -o 'failures="[0-9]*"' "$DIR/test_results.xml" | grep -o '[0-9]*')
-    ERRORS=$(grep -o 'errors="[0-9]*"' "$DIR/test_results.xml" | grep -o '[0-9]*')
-    SKIPPED=$(grep -o 'skipped="[0-9]*"' "$DIR/test_results.xml" | grep -o '[0-9]*')
-    TIME=$(grep -o 'time="[0-9\.]*"' "$DIR/test_results.xml" | grep -o '[0-9\.]*')
+    TESTS=$(grep -o 'tests="[0-9]*"' "$DIR/test_results.xml" | head -1 | grep -o '[0-9]*')
+    FAILURES=$(grep -o 'failures="[0-9]*"' "$DIR/test_results.xml" | head -1 | grep -o '[0-9]*')
+    ERRORS=$(grep -o 'errors="[0-9]*"' "$DIR/test_results.xml" | head -1 | grep -o '[0-9]*')
+    SKIPPED=$(grep -o 'skipped="[0-9]*"' "$DIR/test_results.xml" | head -1 | grep -o '[0-9]*')
+    TIME=$(grep -o 'time="[0-9\.]*"' "$DIR/test_results.xml" | head -1 | grep -o '[0-9\.]*')
+    
+    # Also look for the time in the log file for more accurate timing
+    LOG_TIME=$(grep -o '[0-9\.]\+s ([0-9]\+:[0-9]\+:[0-9]\+)' "$DIR/pytest_output.log" | tail -1 || echo "")
 
     echo "- Tests run: $TESTS" >> "$REPORT_MD"
     echo "- Failures: $FAILURES" >> "$REPORT_MD"
     echo "- Errors: $ERRORS" >> "$REPORT_MD"
     echo "- Skipped: $SKIPPED" >> "$REPORT_MD"
-    echo "- Time: $TIME seconds" >> "$REPORT_MD"
+    if [ -n "$LOG_TIME" ]; then
+      echo "- Time: $TIME $LOG_TIME seconds" >> "$REPORT_MD"
+    else
+      echo "- Time: $TIME seconds" >> "$REPORT_MD"
+    fi
     echo "" >> "$REPORT_MD"
 
-    # Extract individual testcase results for JSON and CSV
+    # Extract individual testcase results for JSON and CSV - keep this section as is
     grep -o '<testcase[^>]*>' "$DIR/test_results.xml" | while read -r line; do
       # Extract test details
       TEST_NAME=$(echo "$line" | grep -o 'name="[^"]*"' | sed 's/name="\([^"]*\)"/\1/')

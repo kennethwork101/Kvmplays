@@ -1,0 +1,59 @@
+---
+# Tasks for gathering test results
+
+- name: Extract test summary from output
+  shell: |
+    grep -A1 "= FAILURES =" pytest_output.log || echo "No failures found"
+    grep "= .* failed, .* passed" pytest_output.log || echo "Summary not found"
+  args:
+    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ git_repos }}"
+  register: test_summary
+  changed_when: false
+  failed_when: false
+
+- name: Display test results summary
+  debug:
+    msg: |
+      ===== Test Results for {{ (item.item | basename | splitext)[0] }} =====
+      {{ item.stdout }}
+  loop: "{{ test_results.results }}"
+  when: item.stdout | trim != ""
+
+- name: Display test summary
+  debug:
+    msg: |
+      ===== Test Summary for {{ (item.item | basename | splitext)[0] }} =====
+      {{ item.stdout }}
+  loop: "{{ test_summary.results }}"
+
+- name: Parse JUnit XML results
+  community.general.xml:
+    path: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results.xml"
+    xpath: /testsuite
+    content: attribute
+  become: yes
+  become_user: "{{ username }}"
+  loop: "{{ git_repos }}"
+  register: junit_results
+  failed_when: false
+
+- name: Display JUnit test summary
+  debug:
+    msg: |
+      ===== JUnit Test Summary for {{ (item.item | basename | splitext)[0] }} =====
+      Tests run: {{ item.matches[0].testsuite.tests }}
+      Failures: {{ item.matches[0].testsuite.failures }}
+      Errors: {{ item.matches[0].testsuite.errors }}
+      Skipped: {{ item.matches[0].testsuite.skipped }}
+      Time: {{ item.matches[0].testsuite.time }} seconds
+  loop: "{{ junit_results.results }}"
+  when:
+    - item.matches is defined
+    - item.matches | length > 0
+
+- name: Print completion timestamp
+  debug:
+    msg: "Finished gathering test results at {{ ansible_date_time.iso8601 }}"

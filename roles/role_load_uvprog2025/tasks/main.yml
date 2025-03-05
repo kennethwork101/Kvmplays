@@ -33,15 +33,31 @@
         project_root: "{{ user_home.stdout }}/{{ uvprog }}"
         user_local_bin: "{{ user_home.stdout }}/.local/bin"
 
-- name: Set concurrency based on test type and target VMs
-  set_fact:
-    effective_concurrent_runs: "{{ concurrent_runs | int }}"
-  when: (target_vm is defined and target_vm | length > 0) or (include_testme | bool)
+# ### Keep this commented out code is when testme is used to determine effective_concurrent_run
+# - name: Set concurrency based on test type and target VMs
+#   set_fact:
+#     effective_concurrent_runs: "{{ concurrent_runs | int }}"
+#   when: (target_vm is defined and target_vm | length > 0) or (include_testme | bool)
 
-- name: Set single VM concurrency when running standard tests
+# - name: Set single VM concurrency when running standard tests
+#   set_fact:
+#     effective_concurrent_runs: "{{ single_vm_run | int }}"
+#   when: (target_vm is not defined or target_vm | length == 0) and not (include_testme | bool)
+
+# - name: Ensure effective_concurrent_runs is set
+#   set_fact:
+#     effective_concurrent_runs: "{{ concurrent_runs | int }}"
+#   when: effective_concurrent_runs is not defined
+
+- name: Set concurrency based on target VM
   set_fact:
     effective_concurrent_runs: "{{ single_vm_run | int }}"
-  when: (target_vm is not defined or target_vm | length == 0) and not (include_testme | bool)
+  when: target_vm is defined and target_vm | length > 0
+
+- name: Set default concurrency when not targeting specific VMs
+  set_fact:
+    effective_concurrent_runs: "{{ concurrent_runs | int }}"
+  when: target_vm is not defined or target_vm | length == 0
 
 - name: Ensure effective_concurrent_runs is set
   set_fact:
@@ -324,13 +340,10 @@
 
 - name: Testing preparation
   block:
-    - name: Set concurrency based on include_testme and target_vm
-      set_fact:
-        effective_concurrent_runs: "{% if target_vm is defined and target_vm | length > 0 %}{{ concurrent_runs }}{% elif include_testme | bool %}{{ concurrent_runs }}{% else %}{{ single_vm_run }}{% endif %}"
-
-    - name: Display concurrency setting
-      debug:
-        msg: "Running with concurrency: {{ effective_concurrent_runs }} VM(s) at a time"
+    # ### Keep this commented out code is when testme is used to determine effective_concurrent_run
+    # - name: Set concurrency based on include_testme and target_vm
+    #   set_fact:
+    #     effective_concurrent_runs: "{% if target_vm is defined and target_vm | length > 0 %}{{ single_vm_run }}{% else %}{{ concurrent_runs }}{% endif %}"
 
     - name: Record test start time
       set_fact:
@@ -419,16 +432,6 @@
   throttle: "{{ effective_concurrent_runs }}"
   register: pytest_result
 
-# Add this task to directly check for output files instead of relying on async status
-- name: Wait for test completion
-  wait_for:
-    path: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/pytest_output.log"
-    timeout: 1800  # 30 minutes
-  loop: "{{ git_repos }}"
-  become: yes
-  become_user: "{{ username }}"
-
-# You can either keep this task with ignore_errors or remove it if it's causing problems
 - name: Check job status with timestamps (best effort)
   async_status:
     jid: "{{ item.ansible_job_id }}"

@@ -1,0 +1,48 @@
+---
+# Tasks for generating test reports
+
+# First, copy the report generation script to the target
+- name: Copy report generation script
+  copy:
+    src: enhanced_generate_report.sh
+    dest: "{{ user_home.stdout }}/enhanced_generate_report.sh"
+    mode: '0755'
+  become: yes
+  become_user: "{{ username }}"
+
+# Then run the enhanced script on each guest VM
+- name: Generate enhanced test reports on guest VM
+  shell: "./enhanced_generate_report.sh {{ user_home.stdout }}/{{ uvprog }}"
+  args:
+    chdir: "{{ user_home.stdout }}"
+  become: yes
+  become_user: "{{ username }}"
+
+- name: Ensure reports directory exists with correct permissions
+  file:
+    path: "{{ reports_dir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+  delegate_to: localhost
+  run_once: true
+  become: yes
+
+# Fetch test reports from guest VMs
+- name: Fetch test reports from guest VMs
+  fetch:
+    src: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
+    dest: "{{ reports_dir }}/{{ inventory_hostname }}_{{ item }}"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  with_items:
+    - "test_report.{{ item }}"
+  loop: "{{ report_formats }}"
+  failed_when: false  # Continue even if one format is missing
+
+# Optionally, display that the report was created
+- name: Report generation status
+  debug:
+    msg: "Test reports generated at {{ user_home.stdout }}/{{ uvprog }}/test_report.[md,json,csv]"

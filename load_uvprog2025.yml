@@ -1,11 +1,14 @@
 ---
 
+#    time ansible-playbook load_uvprog2025.yml
+#    time ansible-playbook load_uvprog2025.yml -e "include_testme=false"
+#    time ansible-playbook load_uvprog2025.yml -e "include_testme=true"
+
 #    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=false"
 #    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=false"
 #    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=false"
 #    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']"   -e "include_testme=false"
 
-#    time ansible-playbook load_uvprog2025.yml
 #    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=true"
 #    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=true"
 #    time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=true"
@@ -40,8 +43,15 @@
 - name: Git clone projects from github and initiale the .venv
   hosts: "{{ target_vm | default('kvm_guests') }}"
   become: true
+  serial: 8  # Process 8 hosts in parallel
   vars:
     username: "kenneth"
     uvprog: "uvprog2025"
+    format_xml: true
   roles:
     - role_load_uvprog2025
+    - role_pytest_reports
+  post_tasks:
+    - name: Notify completion
+      debug:
+        msg: "Pytest report processing completed successfully"
