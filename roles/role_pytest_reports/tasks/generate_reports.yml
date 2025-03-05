@@ -1,22 +1,21 @@
 ---
 # Tasks for generating test reports
 
-- name: Debug role path and file existence
+# Debug script path
+- name: Debug report script existence
+  stat:
+    path: "{{ role_path }}/files/enhanced_generate_report.sh"
+  register: script_stat
+  delegate_to: localhost
+
+- name: Show script status
   debug:
     msg:
-      - "Role path: {{ role_path }}"
-      - "File exists: {{ lookup('first_found', {'paths': [role_path + '/files'], 'files': ['enhanced_generate_report.sh']}) | default('NOT FOUND', true) }}"
-  become: yes
-  become_user: "{{ username }}"
+      - "Script exists: {{ script_stat.stat.exists }}"
+      - "Script path: {{ role_path }}/files/enhanced_generate_report.sh"
+  delegate_to: localhost
 
 # First, copy the report generation script to the target
-# - name: Copy report generation script
-#   copy:
-#     src: enhanced_generate_report.sh
-#     dest: "{{ user_home.stdout }}/enhanced_generate_report.sh"
-#     mode: '0755'
-#   become: yes
-#   become_user: "{{ username }}"
 - name: Copy report generation script
   copy:
     src: "{{ role_path }}/files/enhanced_generate_report.sh"
@@ -33,31 +32,17 @@
   become: yes
   become_user: "{{ username }}"
 
-- name: Ensure reports directory exists with correct permissions
-  file:
-    path: "{{ reports_dir }}"
-    state: directory
-    mode: '0755'
-    owner: "{{ lookup('env', 'USER') }}"
-    group: "{{ lookup('env', 'USER') }}"
-  delegate_to: localhost
-  run_once: true
-  become: yes
-
-# Fetch test reports from guest VMs
-- name: Fetch test reports from guest VMs
-  fetch:
-    src: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
-    dest: "{{ reports_dir }}/{{ inventory_hostname }}_{{ item }}"
-    flat: yes
+# Debug to verify reports were created
+- name: Check if reports were created
+  stat:
+    path: "{{ user_home.stdout }}/{{ uvprog }}/test_report.md"
+  register: report_file
   become: yes
   become_user: "{{ username }}"
-  with_items:
-    - "test_report.{{ item }}"
-  loop: "{{ report_formats }}"
-  failed_when: false  # Continue even if one format is missing
 
-# Optionally, display that the report was created
-- name: Report generation status
+- name: Debug report file status
   debug:
-    msg: "Test reports generated at {{ user_home.stdout }}/{{ uvprog }}/test_report.[md,json,csv]"
+    msg:
+      - "Report file exists: {{ report_file.stat.exists | default(false) }}"
+      - "Path checked: {{ user_home.stdout }}/{{ uvprog }}/test_report.md"
+      - "File size: {{ report_file.stat.size | default('N/A') }}"

@@ -2,6 +2,49 @@
 # Tasks for consolidating test reports
 
 # Create directory for versioned reports
+- name: Ensure reports directory exists with correct permissions
+  file:
+    path: "{{ reports_dir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+  delegate_to: localhost
+  run_once: true
+  become: yes
+
+# Fetch test reports from guest VMs
+- name: Fetch test reports from guest VMs
+  fetch:
+    src: "{{ user_home.stdout }}/{{ uvprog }}/test_report.{{ item }}"
+    dest: "{{ reports_dir }}/{{ inventory_hostname }}_test_report.{{ item }}"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  with_items:
+    - md
+    - json
+    - csv
+  failed_when: false  # Continue even if one format is missing
+
+# Debug step to check for reports
+- name: Check for fetched reports
+  find:
+    paths: "{{ reports_dir }}"
+    patterns: "*_test_report.md"
+  register: found_reports
+  delegate_to: localhost
+  run_once: true
+
+- name: Debug fetched reports
+  debug:
+    msg:
+      - "Reports found: {{ found_reports.matched }}"
+      - "Report files: {{ found_reports.files | map(attribute='path') | list }}"
+  delegate_to: localhost
+  run_once: true
+
+# Create directory for versioned reports
 - name: Ensure versioned reports directory exists with correct permissions
   file:
     path: "{{ reports_history_dir }}"

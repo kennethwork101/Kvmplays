@@ -14,20 +14,13 @@
   changed_when: false
   failed_when: false
 
-- name: Display test results summary
-  debug:
-    msg: |
-      ===== Test Results for {{ (item.item | basename | splitext)[0] }} =====
-      {{ item.stdout }}
-  loop: "{{ test_results.results }}"
-  when: item.stdout | trim != ""
-
 - name: Display test summary
   debug:
     msg: |
       ===== Test Summary for {{ (item.item | basename | splitext)[0] }} =====
       {{ item.stdout }}
   loop: "{{ test_summary.results }}"
+  when: item.stdout | trim != ""
 
 - name: Parse JUnit XML results
   community.general.xml:

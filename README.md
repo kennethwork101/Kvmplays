@@ -524,13 +524,46 @@ time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"  -e "node
 ```
 
 --------------------------------------------------------------------------------------------------
-### Available Options
+# Pytest Report Generation Role
+
+This role processes pytest results, formats XML output, and generates consolidated reports across multiple VMs.
+
+## Features
+
+- Extracts test information from pytest output logs
+- Parses JUnit XML test results
+- Formats XML test results for improved readability
+- Generates enhanced test reports in multiple formats (MD, JSON, CSV)
+- Consolidates reports from multiple VMs into a single document
+- Maintains a version history of reports
+
+## Available Tags
+
+To run specific parts of the role, use the Ansible `--tags` parameter:
+
+| Tag           | Description                                                    |
+|---------------|----------------------------------------------------------------|
+| `load`        | Run the load_uvprog2025 role (includes test execution)         |
+| `format`      | Format XML test results                                        |
+| `xml`         | Same as `format`                                               |
+| `generate`    | Generate test reports                                          |
+| `reports`     | Generate and consolidate test reports                          |
+| `consolidate` | Consolidate reports into a single document                     |
+| `gather`      | Extract test information from logs                             |
+
+### Common Tag Combinations
+
+- `load,generate,reports`: Run tests, generate and consolidate reports
+- `generate,reports`: Only generate reports from existing test results
+- `format,generate,reports`: Format XML, generate and consolidate reports
+
+## Available Options
 
 | Option                    | Description                         | Default | Possible Values                             |
 |---------------------------|-------------------------------------|---------|---------------------------------------------|
 | `nodelete`                | Skip deleting existing repositories | `false` | `true`, `false`                             |
 | `python_version_override` | Override default Python version     | (empty) | `3.11`, `3.12`                              |
-| `target_vm`               | List of VMs to target | (all VMs)   | (empty) | List of VM names, e.g. `['kvm-a1-4-u2410']` |
+| `target_vm`               | List of VMs to target               | (all VMs) | List of VM names, e.g. `['kvm-a1-4-u2410']` |
 | `include_testme`          | Include tests marked with 'testme'  | `true`  | `true`, `false`                             |
 
 #### Concurrency Behavior
@@ -554,6 +587,53 @@ This behavior allows for faster execution when targeting specific VMs or running
 - Using the `time` command before the playbook helps track execution duration
 - The verbosity flag (`-v`) provides more detailed output during execution
 
+## Example Usage
+
+```bash
+# Run the whole process (run tests, generate reports, consolidate)
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true" -e "nodelete=false" -e "python_version_override=3.12"
+
+# Only generate and consolidate reports from existing test results
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true" --tags "generate,reports"
+
+# Format XML and generate reports without running tests
+time ansible-playbook load_uvprog2025.yml -v --tags "format,generate,reports"
+
+# Target specific VMs
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']"
+```
+
+## Requirements
+
+- Python 3
+- python3-lxml package (will be installed by the role if not present)
+- Ansible community.general collection (for the xml module)
+
+## Role Variables
+
+Available variables are listed below, along with default values (see `defaults/main.yml`):
+
+```yaml
+# Project directory name
+uvprog: "uvprog2025"
+
+# Report configuration
+reports_dir: "{{ playbook_dir }}/test_reports"
+reports_history_dir: "{{ reports_dir }}/history"
+consolidated_report_path: "{{ playbook_dir }}/consolidated_report.md"
+report_formats:
+  - md
+  - json
+  - csv
+
+# XML formatting configuration
+format_xml: true  # Set to false to disable XML formatting
+xml_backup: true  # Set to false to skip creating backup of original XML
+```
+
+## Dependencies
+
+None.
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------
