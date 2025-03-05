@@ -1,10 +1,25 @@
 ---
 # Tasks for generating test reports
 
+- name: Debug role path and file existence
+  debug:
+    msg:
+      - "Role path: {{ role_path }}"
+      - "File exists: {{ lookup('first_found', {'paths': [role_path + '/files'], 'files': ['enhanced_generate_report.sh']}) | default('NOT FOUND', true) }}"
+  become: yes
+  become_user: "{{ username }}"
+
 # First, copy the report generation script to the target
+# - name: Copy report generation script
+#   copy:
+#     src: enhanced_generate_report.sh
+#     dest: "{{ user_home.stdout }}/enhanced_generate_report.sh"
+#     mode: '0755'
+#   become: yes
+#   become_user: "{{ username }}"
 - name: Copy report generation script
   copy:
-    src: enhanced_generate_report.sh
+    src: "{{ role_path }}/files/enhanced_generate_report.sh"
     dest: "{{ user_home.stdout }}/enhanced_generate_report.sh"
     mode: '0755'
   become: yes
