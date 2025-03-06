@@ -10,7 +10,7 @@
 
 - name: Create temporary Python formatting script
   copy:
-    dest: "{{ user_home.stdout }}/format_xml.py"
+    dest: "{{ user_home }}/format_xml.py"
     mode: 0755
     content: |
       #!/usr/bin/env python3
@@ -35,7 +35,7 @@
       cp test_results.xml test_results.xml.bak
     fi
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
   become: yes
   become_user: "{{ username }}"
@@ -47,12 +47,12 @@
 - name: Format XML test results
   shell: |
     if [ -f test_results.xml ]; then
-      python3 {{ user_home.stdout }}/format_xml.py
+      python3 {{ user_home }}/format_xml.py
     else
       echo "No test_results.xml file found"
     fi
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
   become: yes
   become_user: "{{ username }}"
@@ -63,7 +63,7 @@
 
 - name: Remove temporary Python script
   file:
-    path: "{{ user_home.stdout }}/format_xml.py"
+    path: "{{ user_home }}/format_xml.py"
     state: absent
   become: yes
   become_user: "{{ username }}"
@@ -74,7 +74,7 @@
       cp test_results.xml test_results_formatted.xml
     fi
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item.item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item.item | basename | splitext)[0] }}"
     executable: /bin/bash
   become: yes
   become_user: "{{ username }}"

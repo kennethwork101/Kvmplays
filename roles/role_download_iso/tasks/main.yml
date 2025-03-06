@@ -12,13 +12,18 @@
     state: present
   become: yes
 
-- name: Get home directory of the user
-  shell: "getent passwd {{ username }} | cut -d: -f6"
-  register: user_home
+# - name: Get home directory of the user
+#   shell: "getent passwd {{ username }} | cut -d: -f6"
+#   register: user_home
+
+- name: Get user home directory
+  include_role:
+    name: role_common
+    tasks_from: user_info.yml
 
 - name: Create a directory for ISO files in home directory
   ansible.builtin.file:
-    path: "{{ user_home.stdout }}/{{ isodir }}"
+    path: "{{ user_home }}/{{ isodir }}"
     state: directory
     mode: '0755'
     owner: "{{ username }}"
@@ -64,7 +69,7 @@
 
 - name: Check if ISO images already exist
   stat:
-    path: "{{ user_home.stdout }}/{{ isodir }}/{{ item.name }}"
+    path: "{{ user_home }}/{{ isodir }}/{{ item.name }}"
   register: iso_stat
   loop: "{{ iso_list }}"
   loop_control:
@@ -79,7 +84,7 @@
 
 - name: Download Ubuntu ISO files without progress bar
   command: >
-    python3 /home/{{ username }}/download_without_progress.py {{ item.url }} {{ user_home.stdout }}/{{ isodir }}/{{ item.name }}
+    python3 /home/{{ username }}/download_without_progress.py {{ item.url }} {{ user_home }}/{{ isodir }}/{{ item.name }}
   when: not stat_results[item.name].stat.exists
   become: yes
   become_user: "{{ username }}"
@@ -89,7 +94,7 @@
 
 - name: Change ownership of downloaded ISO files
   file:
-    path: "{{ user_home.stdout }}/{{ isodir }}/{{ item.name }}"
+    path: "{{ user_home }}/{{ isodir }}/{{ item.name }}"
     owner: "{{ username }}"
     group: "{{ username }}"
     mode: '0644'

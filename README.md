@@ -601,6 +601,7 @@ time ansible-playbook load_uvprog2025.yml -v --tags "format,generate,reports"
 
 # Target specific VMs
 time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=false"
 ```
 
 ## Requirements

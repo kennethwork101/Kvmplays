@@ -6,7 +6,7 @@
     grep -A1 "= FAILURES =" pytest_output.log || echo "No failures found"
     grep "= .* failed, .* passed" pytest_output.log || echo "Summary not found"
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
   become: yes
   become_user: "{{ username }}"
   loop: "{{ git_repos }}"
@@ -24,7 +24,7 @@
 
 - name: Parse JUnit XML results
   community.general.xml:
-    path: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results.xml"
+    path: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results.xml"
     xpath: /testsuite
     content: attribute
   become: yes

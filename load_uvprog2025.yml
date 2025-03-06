@@ -48,12 +48,18 @@
     username: "kenneth"
     uvprog: "uvprog2025"
     format_xml: true
+  # pre_tasks:
+  #   - name: Get home directory of the user
+  #     shell: "getent passwd {{ username }} | cut -d: -f6"
+  #     register: user_home
+  #     changed_when: false
+  #     tags: always  # This ensures it runs with any tag
   pre_tasks:
-    - name: Get home directory of the user
-      shell: "getent passwd {{ username }} | cut -d: -f6"
-      register: user_home
-      changed_when: false
-      tags: always  # This ensures it runs with any tag
+    - name: Get user home directory
+      include_role:
+        name: role_common
+        tasks_from: user_info.yml
+      tags: always
   roles:
     - { role: role_load_uvprog2025, tags: ['load'] }
     - { role: role_pytest_reports, tags: ['reports', 'format', 'generate', 'consolidate'] }

@@ -4,8 +4,8 @@
 
 # Internal variables that shouldn't be overridden by users
 # These are computed during playbook execution
-user_local_bin: "{{ user_home.stdout }}/.local/bin"
-project_root: "{{ user_home.stdout }}/{{ uvprog }}"
+user_local_bin: "{{ user_home }}/.local/bin"
+project_root: "{{ user_home }}/{{ uvprog }}"
 
 # Python packages to install
 python_packages:

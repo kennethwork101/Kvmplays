@@ -221,7 +221,7 @@ cat > role_pytest_reports/tasks/gather_results.yml << 'EOF'
     grep -A1 "= FAILURES =" pytest_output.log || echo "No failures found"
     grep "= .* failed, .* passed" pytest_output.log || echo "Summary not found"
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
   become: yes
   become_user: "{{ username }}"
   loop: "{{ git_repos }}"
@@ -246,7 +246,7 @@ cat > role_pytest_reports/tasks/gather_results.yml << 'EOF'
 
 - name: Parse JUnit XML results
   community.general.xml:
-    path: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results.xml"
+    path: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}/test_results.xml"
     xpath: /testsuite
     content: attribute
   become: yes
@@ -309,7 +309,7 @@ except Exception as e:
       echo "No test_results.xml file found"
     fi
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
   become: yes
   become_user: "{{ username }}"
@@ -324,7 +324,7 @@ except Exception as e:
       cp test_results.xml test_results_formatted.xml
     fi
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item.item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item.item | basename | splitext)[0] }}"
     executable: /bin/bash
   become: yes
   become_user: "{{ username }}"
@@ -343,16 +343,16 @@ cat > role_pytest_reports/tasks/generate_reports.yml << 'EOF'
 - name: Copy report generation script
   copy:
     src: enhanced_generate_report.sh
-    dest: "{{ user_home.stdout }}/enhanced_generate_report.sh"
+    dest: "{{ user_home }}/enhanced_generate_report.sh"
     mode: '0755'
   become: yes
   become_user: "{{ username }}"
 
 # Then run the enhanced script on each guest VM
 - name: Generate enhanced test reports on guest VM
-  shell: "./enhanced_generate_report.sh {{ user_home.stdout }}/{{ uvprog }}"
+  shell: "./enhanced_generate_report.sh {{ user_home }}/{{ uvprog }}"
   args:
-    chdir: "{{ user_home.stdout }}"
+    chdir: "{{ user_home }}"
   become: yes
   become_user: "{{ username }}"
 
@@ -370,7 +370,7 @@ cat > role_pytest_reports/tasks/generate_reports.yml << 'EOF'
 # Fetch test reports from guest VMs
 - name: Fetch test reports from guest VMs
   fetch:
-    src: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
+    src: "{{ user_home }}/{{ uvprog }}/{{ item }}"
     dest: "{{ reports_dir }}/{{ inventory_hostname }}_{{ item }}"
     flat: yes
   become: yes
@@ -383,7 +383,7 @@ cat > role_pytest_reports/tasks/generate_reports.yml << 'EOF'
 # Optionally, display that the report was created
 - name: Report generation status
   debug:
-    msg: "Test reports generated at {{ user_home.stdout }}/{{ uvprog }}/test_report.[md,json,csv]"
+    msg: "Test reports generated at {{ user_home }}/{{ uvprog }}/test_report.[md,json,csv]"
 EOF
 
 # Create tasks/consolidate.yml

@@ -31,6 +31,11 @@
       delegate_to: localhost
       delegate_facts: true
 
+- name: Get user home directory
+  include_role:
+    name: role_common
+    tasks_from: user_info.yml
+
 - name: Delete uvprog2025 folder from filtered KVM Virtual Machines
   hosts: "{{ target_vm | default('kvm_guests') }}"
   become: yes
@@ -38,16 +43,16 @@
     username: "kenneth"
     uvprog: "uvprog2025"
   tasks:
-    - name: Get home directory of the user
-      shell: "getent passwd {{ username }} | cut -d: -f6"
-      register: user_home
+    # - name: Get home directory of the user
+    #   shell: "getent passwd {{ username }} | cut -d: -f6"
+    #   register: user_home
 
     - name: Display the user's home directory
       debug:
-        msg: "user_home {{ user_home.stdout }}"
+        msg: "user_home {{ user_home}}"
 
     - name: Delete a directory if it exists
       file:
-        path: "{{ user_home.stdout }}/{{ uvprog }}"
+        path: "{{ user_home}}/{{ uvprog }}"
         state: absent
       when: inventory_hostname in hostvars['localhost']['filtered_vms']

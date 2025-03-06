@@ -16,7 +16,7 @@
 # Fetch test reports from guest VMs
 - name: Fetch test reports from guest VMs
   fetch:
-    src: "{{ user_home.stdout }}/{{ uvprog }}/test_report.{{ item }}"
+    src: "{{ user_home }}/{{ uvprog }}/test_report.{{ item }}"
     dest: "{{ reports_dir }}/{{ inventory_hostname }}_test_report.{{ item }}"
     flat: yes
   become: yes

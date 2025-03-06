@@ -4,17 +4,22 @@
   ansible.builtin.debug:
     msg: "I am connecting to {{ ansible_nodename }} which is running {{ ansible_distribution }} {{ ansible_distribution_version }}"
 
-- name: Get home directory of the user
-  shell: "getent passwd {{ username }} | cut -d: -f6"
-  register: user_home
+# - name: Get home directory of the user
+#   shell: "getent passwd {{ username }} | cut -d: -f6"
+#   register: user_home
+
+- name: Get user home directory
+  include_role:
+    name: role_common
+    tasks_from: user_info.yml
 
 - name: Display the kenneth user_home
   debug:
-    msg: "user_home {{ user_home.stdout }}"
+    msg: "user_home {{ user_home }}"
 
 - name: Ensure .bashrc exists
   ansible.builtin.file:
-    path: "{{ user_home.stdout }}/.bashrc"
+    path: "{{ user_home}}/.bashrc"
     state: file
     mode: '0644'
     modification_time: preserve
@@ -23,7 +28,7 @@
 
 - name: Add screen blanking prevention settings to .bashrc
   lineinfile:
-    path: "{{ user_home.stdout }}/.bashrc"
+    path: "{{ user_home }}/.bashrc"
     line: "{{ item }}"
     regexp: "^{{ item | regex_escape }}"
     state: present
@@ -34,7 +39,7 @@
 
 - name: Add aliases to .bashrc if they don't exist
   lineinfile:
-    path: "{{ user_home.stdout }}/.bashrc"
+    path: "{{ user_home }}/.bashrc"
     line: "alias {{ item.key }}='{{ item.value }}'"
     regexp: "^alias {{ item.key }}="
     state: present
@@ -43,7 +48,7 @@
 
 - name: Add exports to .bashrc if they don't exist
   lineinfile:
-    path: "{{ user_home.stdout }}/.bashrc"
+    path: "{{ user_home }}/.bashrc"
     line: "export {{ item.key }}={{ item.value }}"
     regexp: "^export {{ item.key }}="
     state: present
@@ -52,7 +57,7 @@
 
 # - name: Add screen blanking prevention settings to .bashrc
 #   lineinfile:
-#     path: "{{ user_home.stdout }}/.bashrc"
+#     path: "{{ user_home }}/.bashrc"
 #     line: "{{ item }}"
 #     regexp: "^{{ item | regex_escape }}"
 #     state: present
@@ -86,14 +91,14 @@
 
 # - name: Ensure the .bashrc file exists
 #   file:
-#     path: "{{ user_home.stdout }}/.bashrc"
+#     path: "{{ user_home }}/.bashrc"
 #     state: touch
 #     mode: '0644'
 #   become: false
 
 - name: Add ~/.local/bin to PATH in .bashrc if not already present
   lineinfile:
-    path: "{{ user_home.stdout }}/.bashrc"
+    path: "{{ user_home }}/.bashrc"
     regexp: '(^|^#).*export PATH=\$HOME/\.local/bin:\$PATH'
     line: 'export PATH=$HOME/.local/bin:$PATH'
     state: present
@@ -101,35 +106,35 @@
 
 - name: Create a directory if it does not exist
   file:
-    path: "{{ user_home.stdout }}/.local/bin/"
+    path: "{{ user_home }}/.local/bin/"
     state: directory
     mode: '0755'
 
 - name: Check if uv is already installed
   ansible.builtin.stat:
-    path: "{{ user_home.stdout }}/.local/bin/uv"
+    path: "{{ user_home }}/.local/bin/uv"
   register: uv_installed
 
 - name: Install uv
   ansible.builtin.shell: |
-    export PATH={{ user_home.stdout }}/.local/bin:$PATH
+    export PATH={{ user_home }}/.local/bin:$PATH
     curl -LsSf https://astral.sh/uv/install.sh | sh
   environment:
-    HOME: "{{ user_home.stdout }}"
+    HOME: "{{ user_home }}"
   when: uv_installed.stat.exists == false
   changed_when: true
 
 - name: Check if ruff is already installed
   ansible.builtin.stat:
-    path: "{{ user_home.stdout }}/.local/bin/ruff"
+    path: "{{ user_home }}/.local/bin/ruff"
   register: ruff_installed
 
 - name: Install ruff
   ansible.builtin.shell: |
-    export PATH={{ user_home.stdout }}/.local/bin:$PATH
+    export PATH={{ user_home }}/.local/bin:$PATH
     curl -LsSf https://astral.sh/ruff/install.sh | sh
   environment:
-    HOME: "{{ user_home.stdout }}"
+    HOME: "{{ user_home }}"
   when: ruff_installed.stat.exists == false
   changed_when: true
 

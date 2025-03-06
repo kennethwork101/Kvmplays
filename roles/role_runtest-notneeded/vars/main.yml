@@ -2,5 +2,5 @@
 
 # role_runtest/vars/main.yml
 
-user_local_bin: "{{ user_home.stdout }}/.local/bin"
-project_root: "{{ user_home.stdout }}/{{ uvprog }}"
+user_local_bin: "{{ user_home }}/.local/bin"
+project_root: "{{ user_home }}/{{ uvprog }}"

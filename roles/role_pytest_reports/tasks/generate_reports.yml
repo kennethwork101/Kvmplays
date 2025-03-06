@@ -19,23 +19,23 @@
 - name: Copy report generation script
   copy:
     src: "{{ role_path }}/files/enhanced_generate_report.sh"
-    dest: "{{ user_home.stdout }}/enhanced_generate_report.sh"
+    dest: "{{ user_home }}/enhanced_generate_report.sh"
     mode: '0755'
   become: yes
   become_user: "{{ username }}"
 
 # Then run the enhanced script on each guest VM
 - name: Generate enhanced test reports on guest VM
-  shell: "./enhanced_generate_report.sh {{ user_home.stdout }}/{{ uvprog }}"
+  shell: "./enhanced_generate_report.sh {{ user_home }}/{{ uvprog }}"
   args:
-    chdir: "{{ user_home.stdout }}"
+    chdir: "{{ user_home }}"
   become: yes
   become_user: "{{ username }}"
 
 # Debug to verify reports were created
 - name: Check if reports were created
   stat:
-    path: "{{ user_home.stdout }}/{{ uvprog }}/test_report.md"
+    path: "{{ user_home }}/{{ uvprog }}/test_report.md"
   register: report_file
   become: yes
   become_user: "{{ username }}"
@@ -44,5 +44,5 @@
   debug:
     msg:
       - "Report file exists: {{ report_file.stat.exists | default(false) }}"
-      - "Path checked: {{ user_home.stdout }}/{{ uvprog }}/test_report.md"
+      - "Path checked: {{ user_home }}/{{ uvprog }}/test_report.md"
       - "File size: {{ report_file.stat.size | default('N/A') }}"

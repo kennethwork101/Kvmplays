@@ -17,15 +17,20 @@
       debug:
         msg: "Using Python {{ python_version }} based on Ubuntu {{ ubuntu_version.stdout }}"
 
-    - name: Get home directory of the user
-      shell: "getent passwd {{ username }} | cut -d: -f6"
-      register: user_home
-      changed_when: false
+    # - name: Get home directory of the user
+    #   shell: "getent passwd {{ username }} | cut -d: -f6"
+    #   register: user_home
+    #   changed_when: false
+
+    - name: Get user home directory
+      include_role:
+        name: role_common
+        tasks_from: user_info.yml
 
     - name: Set project paths
       set_fact:
-        project_root: "{{ user_home.stdout }}/{{ uvprog }}"
-        user_local_bin: "{{ user_home.stdout }}/.local/bin"
+        project_root: "{{ user_home }}/{{ uvprog }}"
+        user_local_bin: "{{ user_home }}/.local/bin"
 
 - name: Python installation preparation
   block:
@@ -252,13 +257,13 @@
 #         source .venv/bin/activate && {{ pytest_cmd }}
 #         echo "Completed pytest execution at $(date)" >> /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
 #       args:
-#         chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+#         chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
 #         executable: /bin/bash
 #       become: yes
 #       become_user: "{{ username }}"
 #       environment:
 #         PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
-#         PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+#         PYTHONPATH: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
 #       register: pytest_results
 #       loop: "{{ git_repos }}"
 #       throttle: "{{ effective_concurrent_runs }}"
@@ -277,7 +282,7 @@
     source .venv/bin/activate && {{ pytest_cmd }}
     echo "Completed pytest execution at $(date)" >> /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
   async: 1200
   poll: 0
@@ -285,7 +290,7 @@
   become_user: "{{ username }}"
   environment:
     PATH: "/home/kenneth/.local/bin:{{ ansible_env.PATH }}"
-    PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    PYTHONPATH: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
   register: async_jobs
   loop: "{{ git_repos }}"
 

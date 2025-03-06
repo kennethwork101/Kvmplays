@@ -23,15 +23,20 @@
       debug:
         msg: "Using Python {{ python_version }} {{ 'from override' if python_version_override is defined and python_version_override | length > 0 else 'based on Ubuntu ' + ubuntu_version.stdout }}"
 
-    - name: Get home directory of the user
-      shell: "getent passwd {{ username }} | cut -d: -f6"
-      register: user_home
-      changed_when: false
+    # - name: Get home directory of the user
+    #   shell: "getent passwd {{ username }} | cut -d: -f6"
+    #   register: user_home
+    #   changed_when: false
+
+    - name: Get user home directory
+      include_role:
+        name: role_common
+        tasks_from: user_info.yml
 
     - name: Set project paths
       set_fact:
-        project_root: "{{ user_home.stdout }}/{{ uvprog }}"
-        user_local_bin: "{{ user_home.stdout }}/.local/bin"
+        project_root: "{{ user_home }}/{{ uvprog }}"
+        user_local_bin: "{{ user_home }}/.local/bin"
 
 # ### Keep this commented out code is when testme is used to determine effective_concurrent_run
 # - name: Set concurrency based on test type and target VMs
@@ -386,7 +391,7 @@
       shell: |
         source .venv/bin/activate && python -m pytest --collect-only -v | grep -c 'collected'
       args:
-        chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
+        chdir: "{{ user_home }}/{{ uvprog }}/{{ item }}"
         executable: /bin/bash
       loop: "{{ git_repos | map('basename') | map('splitext') | map('first') | list }}"
       register: test_collection
@@ -398,7 +403,7 @@
       shell: |
         source .venv/bin/activate && python -m pytest -v -m testme --collect-only 2>&1 | grep -c 'collected'
       args:
-        chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ item }}"
+        chdir: "{{ user_home }}/{{ uvprog }}/{{ item }}"
         executable: /bin/bash
       loop: "{{ git_repos | map('basename') | map('splitext') | map('first') | list }}"
       register: testme_count
@@ -419,15 +424,15 @@
     source .venv/bin/activate && {{ pytest_cmd }}
     echo "Completed pytest execution at $(date)" >> /tmp/pytest_debug_{{ item | basename | regex_replace('[^a-zA-Z0-9]', '') }}.log
   args:
-    chdir: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
   async: 1800  # Run the task asynchronously with a timeout of 30 minutes
   poll: 10     # Poll for the status every 10 seconds
   become: yes
   become_user: "{{ username }}"
   environment:
-    PATH: "{{ user_home.stdout }}/.local/bin:{{ ansible_env.PATH }}"
-    PYTHONPATH: "{{ user_home.stdout }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
+    PATH: "{{ user_home }}/.local/bin:{{ ansible_env.PATH }}"
+    PYTHONPATH: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
   loop: "{{ git_repos }}"
   throttle: "{{ effective_concurrent_runs }}"
   register: pytest_result
