@@ -1,0 +1,12 @@
+---
+# Get user information and home directory
+- name: Get user information with getent module
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ username }}"
+  register: user_info
+  changed_when: false
+
+- name: Set user home directory as a variable
+  ansible.builtin.set_fact:
+    user_home: "{{ user_info.ansible_facts.getent_passwd[username][4] }}"
