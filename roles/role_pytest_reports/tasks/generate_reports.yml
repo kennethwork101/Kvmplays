@@ -31,18 +31,28 @@
     chdir: "{{ user_home }}"
   become: yes
   become_user: "{{ username }}"
+  register: report_generation_output
 
 # Debug to verify reports were created
-- name: Check if reports were created
+- name: Check if reports directory was created
   stat:
-    path: "{{ user_home }}/{{ uvprog }}/test_report.md"
-  register: report_file
+    path: "{{ user_home }}/{{ uvprog }}/test_reports"
+  register: reports_dir
   become: yes
   become_user: "{{ username }}"
 
-- name: Debug report file status
+- name: Check if latest report was created
+  stat:
+    path: "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+  register: latest_report
+  become: yes
+  become_user: "{{ username }}"
+  when: reports_dir.stat.exists | default(false)
+
+- name: Debug report generation status
   debug:
     msg:
-      - "Report file exists: {{ report_file.stat.exists | default(false) }}"
-      - "Path checked: {{ user_home }}/{{ uvprog }}/test_report.md"
-      - "File size: {{ report_file.stat.size | default('N/A') }}"
+      - "Reports directory exists: {{ reports_dir.stat.exists | default(false) }}"
+      - "Latest report exists: {{ latest_report.stat.exists | default(false) }}"
+      - "Reports location: {{ user_home }}/{{ uvprog }}/test_reports/"
+      - "Script output: {{ report_generation_output.stdout_lines | default('No output') }}"

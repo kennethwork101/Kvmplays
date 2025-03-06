@@ -1,10 +1,26 @@
 ---
 # Tasks for consolidating test reports
 
-# Create directory for versioned reports
+# First, copy the VM consolidation script to the control node
+- name: Copy VM consolidation script
+  copy:
+    src: "{{ role_path }}/files/vm_consolidation.sh"
+    dest: "{{ playbook_dir }}/vm_consolidation.sh"
+    mode: '0755'
+  delegate_to: localhost
+  run_once: true
+
+# Debug the reports_dir variable to check its value
+- name: Debug reports directory variable
+  debug:
+    msg: "Reports directory: {{ reports_dir }}"
+  delegate_to: localhost
+  run_once: true
+
+# Create directory for versioned reports - fixed path parameter
 - name: Ensure reports directory exists with correct permissions
   file:
-    path: "{{ reports_dir }}"
+    path: "{{ playbook_dir }}/test_reports"  # Using explicit path instead of variable
     state: directory
     mode: '0755'
     owner: "{{ lookup('env', 'USER') }}"
@@ -13,24 +29,222 @@
   run_once: true
   become: yes
 
-# Fetch test reports from guest VMs
-- name: Fetch test reports from guest VMs
+# Create history directory
+- name: Ensure versioned reports directory exists with correct permissions
+  file:
+    path: "{{ playbook_dir }}/test_reports/history"  # Using explicit path instead of variable
+    state: directory
+    mode: '0755'
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+  delegate_to: localhost
+  run_once: true
+  become: yes
+
+# Create consolidated reports directory
+- name: Ensure consolidated reports directory exists
+  file:
+    path: "{{ playbook_dir }}/consolidated_reports"  # Using explicit path
+    state: directory
+    mode: '0755'
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+  delegate_to: localhost
+  run_once: true
+  become: yes
+
+# Debug to see what's in the remote test_reports directory
+- name: Debug remote test_reports directory
+  shell: "ls -la {{ user_home }}/{{ uvprog }}/test_reports/"
+  become: yes
+  become_user: "{{ username }}"
+  register: remote_reports_ls
+  failed_when: false
+
+# Check all possible locations of latest report files
+- name: Find latest report files paths
+  shell: |
+    echo "Checking for report files..."
+
+    # Check directly in uvprog directory
+    if [ -f "{{ user_home }}/{{ uvprog }}/test_report.md" ]; then
+      echo "DIRECT_PATH:{{ user_home }}/{{ uvprog }}/test_report.md"
+    fi
+
+    # Check in test_reports directory
+    if [ -f "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md" ]; then
+      echo "SYMLINK_PATH:{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+    fi
+
+    # Try to resolve symlink if it exists
+    if [ -L "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md" ]; then
+      target=$(readlink "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md")
+      echo "SYMLINK_TARGET:$target"
+
+      # Check if target is absolute or relative
+      if [[ "$target" = /* ]]; then
+        # Absolute path
+        echo "RESOLVED_PATH:$target"
+      else
+        # Relative path, combine with directory of symlink
+        echo "RESOLVED_PATH:{{ user_home }}/{{ uvprog }}/test_reports/$target"
+      fi
+    fi
+
+    # Find all test report files in the test_reports directory
+    echo "ALL_REPORTS:$(find {{ user_home }}/{{ uvprog }}/test_reports -name "*.md" | grep -v debug | tr '\n' ',')"
+  become: yes
+  become_user: "{{ username }}"
+  register: report_paths
+  failed_when: false
+
+- name: Debug report paths
+  debug:
+    msg: "{{ report_paths.stdout_lines }}"
+
+- name: Extract report paths
+  set_fact:
+    direct_path: "{{ report_paths.stdout | regex_search('DIRECT_PATH:(.*)', '\\1') | first | default('') }}"
+    symlink_target: "{{ report_paths.stdout | regex_search('SYMLINK_TARGET:(.*)', '\\1') | first | default('') }}"
+    resolved_path: "{{ report_paths.stdout | regex_search('RESOLVED_PATH:(.*)', '\\1') | first | default('') }}"
+    all_reports: "{{ report_paths.stdout | regex_search('ALL_REPORTS:(.*)', '\\1') | first | default('') }}"
+  failed_when: false  # Prevent failure if pattern doesn't match
+
+- name: Show extracted paths
+  debug:
+    msg:
+      - "Direct path: {{ direct_path | default('Not found') }}"
+      - "Symlink path: {{ symlink_path | default('Not found') }}"
+      - "Resolved path: {{ resolved_path | default('Not found') }}"
+      - "All reports: {{ all_reports | default([]) }}"
+  when: report_paths.stdout is defined
+
+# Try to fetch from the latest report in all_reports if available
+- name: Fetch latest test report from discovered files
   fetch:
-    src: "{{ user_home }}/{{ uvprog }}/test_report.{{ item }}"
-    dest: "{{ reports_dir }}/{{ inventory_hostname }}_test_report.{{ item }}"
+    src: "{{ all_reports[0] }}"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
     flat: yes
   become: yes
   become_user: "{{ username }}"
-  with_items:
-    - md
-    - json
-    - csv
-  failed_when: false  # Continue even if one format is missing
+  when: all_reports is defined and all_reports | length > 0
+  failed_when: false
+
+# Fetch from resolved path if available
+- name: Fetch from resolved path
+  fetch:
+    src: "{{ resolved_path }}"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  when: resolved_path is defined and resolved_path | length > 0
+  failed_when: false
+
+# Fetch from symlink path if available
+- name: Fetch from symlink path
+  fetch:
+    src: "{{ symlink_path }}"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  when: symlink_path is defined and symlink_path | length > 0
+  failed_when: false
+
+# Fetch from direct path if available
+- name: Fetch from direct path
+  fetch:
+    src: "{{ direct_path }}"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  when: direct_path is defined and direct_path | length > 0
+  failed_when: false
+
+- name: Show remote test_reports content
+  debug:
+    msg: "{{ remote_reports_ls.stdout_lines }}"
+
+# Check for latest report symlink existence
+- name: Check if latest report symlink exists
+  stat:
+    path: "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+  become: yes
+  become_user: "{{ username }}"
+  register: latest_report_exists
+  failed_when: false
+
+- name: Show symlink status
+  debug:
+    msg: "Latest report symlink exists: {{ latest_report_exists.stat.exists | default(false) }}"
+
+# Find the actual report file path (resolving symlink)
+- name: Find actual report files on remote VM
+  shell: "readlink -f {{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+  become: yes
+  become_user: "{{ username }}"
+  register: actual_report_path
+  failed_when: false
+  when: latest_report_exists.stat.exists | default(false)
+
+- name: Show extracted paths
+  debug:
+    msg:
+      - "Direct path: {{ direct_path }}"
+      - "Symlink target: {{ symlink_target }}"
+      - "Resolved path: {{ resolved_path }}"
+      - "All reports: {{ all_reports }}"
+
+# Fetch the most reliable report path (try resolved path first, then direct path)
+- name: Fetch actual test report from guest VM
+  fetch:
+    src: "{{ resolved_path | default(direct_path) }}"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  failed_when: false
+  when: resolved_path != '' or direct_path != ''
+
+# Fetch test reports from guest VMs - using symlink as fallback
+- name: Fetch latest test reports from guest VMs (fallback)
+  fetch:
+    src: "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  failed_when: false  # Continue even if missing
+  when: (not latest_report_exists.stat.exists | default(false)) or actual_report_path.stdout == ""
+
+# Fetch JSON reports if they exist
+- name: Fetch latest JSON reports from guest VMs
+  fetch:
+    src: "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.json"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.json"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  failed_when: false
+  when: latest_report_exists.stat.exists | default(false)
+
+# Fetch CSV reports if they exist
+- name: Fetch latest CSV reports from guest VMs
+  fetch:
+    src: "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.csv"
+    dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.csv"
+    flat: yes
+  become: yes
+  become_user: "{{ username }}"
+  failed_when: false
+  when: latest_report_exists.stat.exists | default(false)
 
 # Debug step to check for reports
 - name: Check for fetched reports
   find:
-    paths: "{{ reports_dir }}"
+    paths: "{{ playbook_dir }}/test_reports"
     patterns: "*_test_report.md"
   register: found_reports
   delegate_to: localhost
@@ -44,18 +258,6 @@
   delegate_to: localhost
   run_once: true
 
-# Create directory for versioned reports
-- name: Ensure versioned reports directory exists with correct permissions
-  file:
-    path: "{{ reports_history_dir }}"
-    state: directory
-    mode: '0755'
-    owner: "{{ lookup('env', 'USER') }}"
-    group: "{{ lookup('env', 'USER') }}"
-  delegate_to: localhost
-  run_once: true
-  become: yes
-
 # Get current timestamp for report naming
 - name: Get current timestamp
   shell: date '+%Y%m%d_%H%M%S'
@@ -64,97 +266,119 @@
   run_once: true
   changed_when: false
 
-# Handle versioning of previous reports
-- name: Version previous consolidated report if it exists
+# Extra debug to make sure we're passing files to the consolidation script
+- name: Debug files to be passed to consolidation script
+  shell: "ls -la {{ playbook_dir }}/test_reports/*_test_report.md || echo 'No matching files'"
+  delegate_to: localhost
+  run_once: true
+  register: files_to_consolidate
+
+- name: Show files to be consolidated
+  debug:
+    msg: "{{ files_to_consolidate.stdout_lines }}"
+  delegate_to: localhost
+  run_once: true
+
+# Extra debug to make sure we're passing files to the consolidation script
+- name: Debug files to be passed to consolidation script
+  shell: "find {{ playbook_dir }}/test_reports -name '*_test_report.md' -type f"
+  delegate_to: localhost
+  run_once: true
+  register: files_to_consolidate
+
+- name: Show files to be consolidated
+  debug:
+    msg: "{{ files_to_consolidate.stdout_lines }}"
+  delegate_to: localhost
+  run_once: true
+
+# Use the VM consolidation script with explicit find command
+- name: Generate consolidated report using the consolidation script
   shell: |
-    # Check if previous consolidated report exists
-    if [ -f "{{ consolidated_report_path }}" ]; then
-      # Find the highest existing version number
-      max_num=0
-      for file in {{ reports_history_dir }}/consolidated_report_*.md; do
-        if [ -f "$file" ]; then
-          num=$(echo "$file" | grep -o 'report_[0-9]*\.md' | grep -o '[0-9]*')
-          if [ "$num" -gt "$max_num" ]; then
-            max_num=$num
-          fi
-        fi
-      done
+    # Find all fetched report files
+    report_files=$(find {{ playbook_dir }}/test_reports -name "*_test_report.md" -type f)
 
-      # Increment the version number
-      next_num=$((max_num + 1))
-
-      # Copy the current report to history with version number
-      cp "{{ consolidated_report_path }}" "{{ reports_history_dir }}/consolidated_report_${next_num}.md"
-      echo "Versioned previous report as consolidated_report_${next_num}.md"
-
-      # Also create a timestamped copy for absolute reference
-      cp "{{ consolidated_report_path }}" "{{ reports_history_dir }}/consolidated_report_${next_num}_{{ timestamp.stdout }}.md"
+    if [ -n "$report_files" ]; then
+      echo "Found report files: $report_files"
+      ./vm_consolidation.sh $report_files
+    else
+      echo "No test report files found to consolidate"
+      exit 1
     fi
   args:
     chdir: "{{ playbook_dir }}"
   delegate_to: localhost
   run_once: true
-  register: versioning_result
-  changed_when: versioning_result.stdout != ""
+  register: consolidation_output
+  failed_when: consolidation_output.rc != 0 and "No test report files found" not in consolidation_output.stdout
 
-# Generate a new consolidated report
-- name: Generate new consolidated report
+# Debug consolidation output
+- name: Debug consolidation script output
+  debug:
+    msg: "{{ consolidation_output.stdout_lines }}"
+  delegate_to: localhost
+  run_once: true
+
+# Copy the latest consolidated report to the history directory with timestamp
+- name: Copy latest consolidated report to history
   shell: |
-    echo "# Consolidated Test Reports" > "{{ consolidated_report_path }}"
-    echo "Generated: $(date)" >> "{{ consolidated_report_path }}"
-    echo "Report ID: {{ timestamp.stdout }}" >> "{{ consolidated_report_path }}"
-    echo "" >> "{{ consolidated_report_path }}"
-
-    # Summary table of VMs
-    echo "## VM Summary" >> "{{ consolidated_report_path }}"
-    echo "" >> "{{ consolidated_report_path }}"
-    echo "| VM Hostname | Report Generated |" >> "{{ consolidated_report_path }}"
-    echo "|-------------|------------------|" >> "{{ consolidated_report_path }}"
-
-    for report in {{ reports_dir }}/*_test_report.md; do
-      if [ -f "$report" ]; then
-        vm_name=$(basename "$report" | sed 's/_test_report.md//')
-        report_date=$(grep "Generated:" "$report" | sed 's/Generated: //')
-        echo "| $vm_name | $report_date |" >> "{{ consolidated_report_path }}"
-      fi
-    done
-
-    echo "" >> "{{ consolidated_report_path }}"
-    echo "## Detailed Reports by VM" >> "{{ consolidated_report_path }}"
-    echo "" >> "{{ consolidated_report_path }}"
-
-    # Detailed reports
-    for report in {{ reports_dir }}/*_test_report.md; do
-      if [ -f "$report" ]; then
-        vm_name=$(basename "$report" | sed 's/_test_report.md//')
-        echo "" >> "{{ consolidated_report_path }}"
-        echo "# VM: $vm_name" >> "{{ consolidated_report_path }}"
-        echo "===========================================" >> "{{ consolidated_report_path }}"
-        echo "" >> "{{ consolidated_report_path }}"
-        cat "$report" >> "{{ consolidated_report_path }}"
-        echo "" >> "{{ consolidated_report_path }}"
-        echo "---" >> "{{ consolidated_report_path }}"
-        echo "" >> "{{ consolidated_report_path }}"
-      fi
-    done
-
-    # Also create a timestamped copy in history
-    cp "{{ consolidated_report_path }}" "{{ reports_history_dir }}/consolidated_report_{{ timestamp.stdout }}.md"
+    # Find the most recent consolidated report
+    latest_report=$(find {{ playbook_dir }}/consolidated_reports -name "consolidated_report.md" -type f | sort -r | head -1)
+    if [ -n "$latest_report" ]; then
+      cp "$latest_report" "{{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout }}.md"
+      echo "Copied to history: $latest_report"
+    else
+      echo "No consolidated report found"
+      exit 1
+    fi
   args:
     chdir: "{{ playbook_dir }}"
   delegate_to: localhost
   run_once: true
+  register: copy_result
+  changed_when: "'Copied to history' in copy_result.stdout"
+  failed_when: "copy_result.rc != 0"
+  when: consolidation_output.rc == 0
+
+# Debug copy result
+- name: Debug copy result
+  debug:
+    msg: "{{ copy_result.stdout_lines }}"
+  delegate_to: localhost
+  run_once: true
+  when: copy_result.stdout_lines is defined
+
+# Copy the latest consolidated report to the specified path
+- name: Copy latest consolidated report to specified path
+  shell: |
+    # Find the most recent consolidated report
+    latest_report=$(find {{ playbook_dir }}/consolidated_reports -name "consolidated_report.md" -type f | sort -r | head -1)
+    if [ -n "$latest_report" ]; then
+      cp "$latest_report" "{{ playbook_dir }}/consolidated_report.md"
+      echo "Copied to main path: $latest_report"
+    else
+      echo "No consolidated report found"
+      exit 1
+    fi
+  args:
+    chdir: "{{ playbook_dir }}"
+  delegate_to: localhost
+  run_once: true
+  register: main_copy_result
+  changed_when: "'Copied to main path' in main_copy_result.stdout"
+  failed_when: "main_copy_result.rc != 0"
+  when: consolidation_output.rc == 0
 
 # Display report information and history
 - name: Display report information
   shell: |
-    echo "Current report: {{ consolidated_report_path }}"
-    echo "Timestamped copy: {{ reports_history_dir }}/consolidated_report_{{ timestamp.stdout }}.md"
+    echo "Current report: {{ playbook_dir }}/consolidated_report.md"
+    echo "Timestamped copy: {{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout }}.md"
     echo ""
     echo "Report history:"
-    ls -1t {{ reports_history_dir }}/consolidated_report_*.md 2>/dev/null | head -10 | sed 's/^/- /'
+    ls -1t {{ playbook_dir }}/test_reports/history/consolidated_report_*.md 2>/dev/null | head -10 | sed 's/^/- /'
     echo ""
-    echo "Total reports in history: $(ls -1 {{ reports_history_dir }}/consolidated_report_*.md 2>/dev/null | wc -l)"
+    echo "Total reports in history: $(ls -1 {{ playbook_dir }}/test_reports/history/consolidated_report_*.md 2>/dev/null | wc -l)"
   args:
     chdir: "{{ playbook_dir }}"
   register: report_info
@@ -171,6 +395,14 @@
 # Display the location of the consolidated report
 - name: Report consolidated report location
   debug:
-    msg: "Consolidated report generated at {{ consolidated_report_path }}"
+    msg: "Consolidated report generated at {{ playbook_dir }}/consolidated_report.md"
   delegate_to: localhost
   run_once: true
+
+# Display consolidation output for debugging
+- name: Show consolidation script output
+  debug:
+    msg: "{{ consolidation_output.stdout_lines | default('No output from consolidation script') }}"
+  delegate_to: localhost
+  run_once: true
+  when: consolidation_output.stdout_lines is defined
