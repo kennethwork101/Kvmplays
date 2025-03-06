@@ -194,7 +194,7 @@
 
     - name: List directories that will be removed
       debug:
-        msg: "Found existing directory: {{ item.stat.path }} (Will {{ 'be kept' if nodelete | default(false) else 'be removed' }})"
+        msg: "Found existing directory: {{ item.stat.path }} (Will {{ 'be removed' if delete_repo | default(true) else 'be kept' }})"
       loop: "{{ dir_check.results }}"
       when: item.stat.exists
 
@@ -206,7 +206,7 @@
       become: yes
       when:
         - dir_check.results | map(attribute='stat.exists') | select | list | length > 0
-        - not nodelete | default(false)
+        - delete_repo | default(true)
       register: remove_result
 
     - name: Wait for directory removal to complete
@@ -217,7 +217,7 @@
       loop: "{{ git_repos }}"
       when:
         - remove_result.changed | default(false)
-        - not nodelete | default(false)
+        - delete_repo | default(true)
       become: yes
 
     - name: Clone git repositories
@@ -233,7 +233,7 @@
       become_user: "{{ username }}"
       throttle: "{{ effective_concurrent_runs }}"
       when:
-        - (not dir_check.results | map(attribute='stat.exists') | select | list | length > 0) or (not nodelete | default(false))
+        - (not dir_check.results | map(attribute='stat.exists') | select | list | length > 0) or (delete_repo | default(true))
 
     - name: Set repository permissions
       file:

@@ -446,7 +446,7 @@ time ansible-playbook load_uvprog2025.yml -v
 
 2. Run without deleting repositories:
 ```bash
-time ansible-playbook load_uvprog2025.yml -v -e "nodelete=true"
+time ansible-playbook load_uvprog2025.yml -v -e "delete_repo=true"
 ```
 
 3. Run with a specific Python version:
@@ -469,58 +469,58 @@ time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"
 6. Combine multiple options:
 ```bash
 --------------------------------------------------------------------------------------------------
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-3-u2404-1']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=true"    -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=false"   -e "nodelete=false" -e "python_version_override=3.12"
-
---------------------------------------------------------------------------------------------------
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
-
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
-
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
-
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true"    -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true"    -e "nodelete=false" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=false"   -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=false"   -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=true"    -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a1-4-u2410']" -e "include_testme=false"   -e "delete_repo=false" -e "python_version_override=3.12"
 
 --------------------------------------------------------------------------------------------------
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-1-u2004-6']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-2-u2204-5']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-3-u2404-1']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true"    -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true"    -e "nodelete=false" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=false"   -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=false"   -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true"    -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=true"    -e "delete_repo=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=false"   -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a2-4-u2410']" -e "include_testme=false"   -e "delete_repo=false" -e "python_version_override=3.12"
+
+--------------------------------------------------------------------------------------------------
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-1-u2004-6']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
+
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-2-u2204-5']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
+
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-3-u2404-1']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
+
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true"    -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=true"    -e "delete_repo=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=false"   -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a3-4-u2410']" -e "include_testme=false"   -e "delete_repo=false" -e "python_version_override=3.12"
 
 
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=true"  -e "nodelete=false" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=false" -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=false" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=true"  -e "delete_repo=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=false" -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "target_vm=['kvm-a-big-u2410']" -e "include_testme=false" -e "delete_repo=false" -e "python_version_override=3.12"
 
-time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true"  -e "nodelete=false" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"  -e "nodelete=true" -e "python_version_override=3.12"
-time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"  -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true"  -e "delete_repo=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"  -e "delete_repo=true" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=false"  -e "delete_repo=false" -e "python_version_override=3.12"
 ```
 
 --------------------------------------------------------------------------------------------------
@@ -561,7 +561,7 @@ To run specific parts of the role, use the Ansible `--tags` parameter:
 
 | Option                    | Description                         | Default | Possible Values                             |
 |---------------------------|-------------------------------------|---------|---------------------------------------------|
-| `nodelete`                | Skip deleting existing repositories | `false` | `true`, `false`                             |
+| `delete_repo`             | Delete existing repositories        | `true` | `true`, `false`                             |
 | `python_version_override` | Override default Python version     | (empty) | `3.11`, `3.12`                              |
 | `target_vm`               | List of VMs to target               | (all VMs) | List of VM names, e.g. `['kvm-a1-4-u2410']` |
 | `include_testme`          | Include tests marked with 'testme'  | `true`  | `true`, `false`                             |
@@ -581,7 +581,7 @@ This behavior allows for faster execution when targeting specific VMs or running
 - 3.12 (default for Ubuntu 24.04/24.10)
 
 #### Notes
-- The `nodelete` and `python_version_override` options are primarily for the `load_uvprog2025.yml` playbook
+- The `delete_repo` and `python_version_override` options are primarily for the `load_uvprog2025.yml` playbook
 - Both playbooks support targeting specific VMs and controlling testme test inclusion
 - Python 3.10 may be available on some systems with the deadsnakes PPA but is not installed by default
 - Using the `time` command before the playbook helps track execution duration
@@ -591,7 +591,7 @@ This behavior allows for faster execution when targeting specific VMs or running
 
 ```bash
 # Run the whole process (run tests, generate reports, consolidate)
-time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true" -e "nodelete=false" -e "python_version_override=3.12"
+time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true" -e "delete_repo=false" -e "python_version_override=3.12"
 
 # Only generate and consolidate reports from existing test results
 time ansible-playbook load_uvprog2025.yml -v -e "include_testme=true" --tags "generate,reports"
