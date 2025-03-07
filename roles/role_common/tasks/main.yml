@@ -4,10 +4,6 @@
   ansible.builtin.debug:
     msg: "I am connecting to {{ ansible_nodename }} which is running {{ ansible_distribution }} {{ ansible_distribution_version }}"
 
-# - name: Get home directory of the user
-#   shell: "getent passwd {{ username }} | cut -d: -f6"
-#   register: user_home
-
 - name: Get user home directory
   include_role:
     name: role_common

@@ -67,48 +67,69 @@
     echo "Checking for report files..."
 
     # Check directly in uvprog directory
-    if [ -f "{{ user_home }}/{{ uvprog }}/test_report.md" ]; then
-      echo "DIRECT_PATH:{{ user_home }}/{{ uvprog }}/test_report.md"
+    direct_path="{{ user_home }}/{{ uvprog }}/test_report.md"
+    if [ -f "$direct_path" ]; then
+      echo "DIRECT_PATH:$direct_path"
     fi
 
-    # Check in test_reports directory
-    if [ -f "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md" ]; then
-      echo "SYMLINK_PATH:{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+    # Check symlink path
+    symlink_path="{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+    if [ -f "$symlink_path" ]; then
+      echo "SYMLINK_PATH:$symlink_path"
     fi
 
     # Try to resolve symlink if it exists
-    if [ -L "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md" ]; then
-      target=$(readlink "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md")
+    if [ -L "$symlink_path" ]; then
+      target=$(readlink "$symlink_path")
       echo "SYMLINK_TARGET:$target"
 
-      # Check if target is absolute or relative
-      if [[ "$target" = /* ]]; then
+      # Check if target is an absolute path
+      if [ "${target:0:1}" = "/" ]; then
         # Absolute path
         echo "RESOLVED_PATH:$target"
       else
         # Relative path, combine with directory of symlink
-        echo "RESOLVED_PATH:{{ user_home }}/{{ uvprog }}/test_reports/$target"
+        resolved_path="{{ user_home }}/{{ uvprog }}/$target"
+        echo "RESOLVED_PATH:$resolved_path"
       fi
     fi
 
     # Find all test report files in the test_reports directory
-    echo "ALL_REPORTS:$(find {{ user_home }}/{{ uvprog }}/test_reports -name "*.md" | grep -v debug | tr '\n' ',')"
+    all_reports=$(find {{ user_home }}/{{ uvprog }}/test_reports -name "*.md" -type f | grep -v debug | tr '\n' ',')
+    echo "ALL_REPORTS:$all_reports"
   become: yes
   become_user: "{{ username }}"
   register: report_paths
+  changed_when: false
   failed_when: false
+
+# Debug the report paths
+- name: Debug report paths
+  ansible.builtin.debug:
+    var: report_paths.stdout_lines
 
 - name: Debug report paths
   debug:
     msg: "{{ report_paths.stdout_lines }}"
 
-- name: Extract report paths
+- name: Extract report paths with safer pattern
   set_fact:
-    direct_path: "{{ report_paths.stdout | regex_search('DIRECT_PATH:(.*)', '\\1') | first | default('') }}"
-    symlink_target: "{{ report_paths.stdout | regex_search('SYMLINK_TARGET:(.*)', '\\1') | first | default('') }}"
-    resolved_path: "{{ report_paths.stdout | regex_search('RESOLVED_PATH:(.*)', '\\1') | first | default('') }}"
-    all_reports: "{{ report_paths.stdout | regex_search('ALL_REPORTS:(.*)', '\\1') | first | default('') }}"
-  failed_when: false  # Prevent failure if pattern doesn't match
+    direct_path: "{{ report_paths.stdout | regex_search('DIRECT_PATH:(.*)', '\\1') | default('', true) }}"
+    symlink_target: "{{ report_paths.stdout | regex_search('SYMLINK_TARGET:(.*)', '\\1') | default('', true) }}"
+    resolved_path: "{{ report_paths.stdout | regex_search('RESOLVED_PATH:(.*)', '\\1') | default('', true) }}"
+    all_reports_string: "{{ report_paths.stdout | regex_search('ALL_REPORTS:(.*)', '\\1') | default('', true) }}"
+  failed_when: false
+
+- name: Process all_reports safely
+  set_fact:
+    all_reports: "{{ all_reports_string.split(',') | select('length') | list }}"
+  when: all_reports_string is defined and all_reports_string != ''
+
+
+- name: Create full path from symlink target if it's a relative path
+  set_fact:
+    actual_report_path: "{{ user_home }}/{{ uvprog }}/{{ symlink_target[0] }}"
+  when: symlink_target is defined and symlink_target|length > 0 and (symlink_target[0] | string) != '' and not (symlink_target[0] | string).startswith('/')
 
 - name: Show extracted paths
   debug:
@@ -195,29 +216,29 @@
       - "Direct path: {{ direct_path }}"
       - "Symlink target: {{ symlink_target }}"
       - "Resolved path: {{ resolved_path }}"
-      - "All reports: {{ all_reports }}"
+      - "actual_report_path reports: {{ actual_report_path }}"
 
 # Fetch the most reliable report path (try resolved path first, then direct path)
-- name: Fetch actual test report from guest VM
+ name: Fetch actual test report from guest VM
   fetch:
-    src: "{{ resolved_path | default(direct_path) }}"
+    src: "{{ user_home }}/{{ uvprog }}/{{ symlink_target[0] }}"
     dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
     flat: yes
   become: yes
   become_user: "{{ username }}"
   failed_when: false
-  when: resolved_path != '' or direct_path != ''
+  when: symlink_target is defined and symlink_target|length > 0
 
 # Fetch test reports from guest VMs - using symlink as fallback
-- name: Fetch latest test reports from guest VMs (fallback)
+- name: Fetch latest test reports from guest VMs (using absolute path)
   fetch:
-    src: "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
+    src: "{{ user_home }}/{{ uvprog }}/{{ symlink_target }}"
     dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
     flat: yes
   become: yes
   become_user: "{{ username }}"
-  failed_when: false  # Continue even if missing
-  when: (not latest_report_exists.stat.exists | default(false)) or actual_report_path.stdout == ""
+  when: symlink_target is defined and symlink_target | length > 0
+  failed_when: false
 
 # Fetch JSON reports if they exist
 - name: Fetch latest JSON reports from guest VMs
@@ -295,14 +316,28 @@
 # Use the VM consolidation script with explicit find command
 - name: Generate consolidated report using the consolidation script
   shell: |
-    # Find all fetched report files
-    report_files=$(find {{ playbook_dir }}/test_reports -name "*_test_report.md" -type f)
+    # Explicitly check for files in the expected location
+    report_files=$(find {{ playbook_dir }}/test_reports -name "*_test_report.md" -type f | sort)
 
     if [ -n "$report_files" ]; then
-      echo "Found report files: $report_files"
+      echo "Found report files:"
+      echo "$report_files"
       ./vm_consolidation.sh $report_files
+      exit_code=$?
+      if [ $exit_code -ne 0 ]; then
+        echo "Consolidation script failed with exit code $exit_code"
+        exit $exit_code
+      fi
     else
       echo "No test report files found to consolidate"
+      echo "Checking alternate locations..."
+
+      # Try JSON files as fallback
+      json_files=$(find {{ playbook_dir }}/test_reports -name "*_test_report.json" -type f | sort)
+      if [ -n "$json_files" ]; then
+        echo "Found JSON report files, but need MD files for consolidation"
+      fi
+
       exit 1
     fi
   args:

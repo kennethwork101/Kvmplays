@@ -48,12 +48,6 @@
     username: "kenneth"
     uvprog: "uvprog2025"
     format_xml: true
-  # pre_tasks:
-  #   - name: Get home directory of the user
-  #     shell: "getent passwd {{ username }} | cut -d: -f6"
-  #     register: user_home
-  #     changed_when: false
-  #     tags: always  # This ensures it runs with any tag
   pre_tasks:
     - name: Get user home directory
       include_role:

@@ -12,10 +12,6 @@
     state: present
   become: yes
 
-# - name: Get home directory of the user
-#   shell: "getent passwd {{ username }} | cut -d: -f6"
-#   register: user_home
-
 - name: Get user home directory
   include_role:
     name: role_common

@@ -23,11 +23,6 @@
       debug:
         msg: "Using Python {{ python_version }} {{ 'from override' if python_version_override is defined and python_version_override | length > 0 else 'based on Ubuntu ' + ubuntu_version.stdout }}"
 
-    # - name: Get home directory of the user
-    #   shell: "getent passwd {{ username }} | cut -d: -f6"
-    #   register: user_home
-    #   changed_when: false
-
     - name: Get user home directory
       include_role:
         name: role_common

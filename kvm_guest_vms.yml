@@ -1,6 +1,7 @@
 ---
 
 #    time ansible-playbook kvm_guest_vms.yml
+#    time ansible-playbook kvm_guest_vms.yml -e "include_testme=true"
 
 #    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a1-1-u2004-6']" -e "include_testme=false"
 #    time ansible-playbook kvm_guest_vms.yml -v -e "target_vm=['kvm-a1-2-u2204-5']" -e "include_testme=false"
