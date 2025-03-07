@@ -219,7 +219,7 @@
       - "actual_report_path reports: {{ actual_report_path }}"
 
 # Fetch the most reliable report path (try resolved path first, then direct path)
- name: Fetch actual test report from guest VM
+- name: Fetch actual test report from guest VM
   fetch:
     src: "{{ user_home }}/{{ uvprog }}/{{ symlink_target[0] }}"
     dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
