@@ -228,9 +228,7 @@
   become_user: "{{ username }}"
   failed_when: false
   when: symlink_target is defined and symlink_target|length > 0
-
-# Fetch test reports from guest VMs - using symlink as fallback
-- name: Fetch latest test reports from guest VMs (using absolute path)
+**Timestamp:** 2025-03-06T19:00:48.691429-08:00
   fetch:
     src: "{{ user_home }}/{{ uvprog }}/{{ symlink_target }}"
     dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"

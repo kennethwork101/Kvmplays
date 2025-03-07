@@ -422,7 +422,7 @@
     chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
   async: 1800  # Run the task asynchronously with a timeout of 30 minutes
-  poll: 10     # Poll for the status every 10 seconds
+  poll: 30     # Poll for the status every 30 seconds
   become: yes
   become_user: "{{ username }}"
   environment:
@@ -438,7 +438,7 @@
   register: job_result
   until: job_result.finished | default(false)
   retries: 240
-  delay: 10
+  delay: 30
   loop: "{{ pytest_result.results }}"
   ignore_errors: yes
 
@@ -448,6 +448,6 @@
   register: job_result
   until: job_result.finished | default(false)
   retries: 240
-  delay: 10
+  delay: 30
   loop: "{{ pytest_result.results }}"
   ignore_errors: yes

@@ -4,12 +4,16 @@
   become: yes  # Use sudo privileges
 
   tasks:
-    - name: Remove directory
-      ansible.builtin.file:
-        path: /home/kenneth/uvprog2025/Ollama-Downloads
-        state: absent
-      register: delete_result
+  - name: Remove directories
+    ansible.builtin.file:
+      path: "{{ item }}"
+      state: absent
+    loop:
+      - /home/kenneth/uvprog2025/Ollama-Downloads
+      - /home/kenneth/uvprog2025/Deeplearning-Langchain-Llm-Course
+    register: delete_result
 
-    - name: Print deletion result
-      debug:
-        msg: "Directory deletion status: {{ delete_result }}"
+  - name: Print deletion results
+    debug:
+      msg: "Directory {{ item.item }} deletion status: {{ item.changed }}"
+    loop: "{{ delete_result.results }}"
