@@ -7,7 +7,7 @@ __pycache__/
 .venv
 .vscode/
 consolidated_report.md*
-consolidated_reports/
+consolidated_reports*/
 enhanced_generate_report.sh-*
 README.md-*
 role_pytest_reports.tar.gz
