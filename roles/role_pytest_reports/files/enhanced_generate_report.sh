@@ -11,6 +11,15 @@ fi
 
 cd "$PROJECT_DIR" || exit 1
 
+# Function to convert seconds to HH:MM:SS format
+format_duration() {
+    local seconds=$1
+    local hours=$((seconds / 3600))
+    local minutes=$(( (seconds % 3600) / 60 ))
+    local secs=$((seconds % 60))
+    printf "%02d:%02d:%02d" $hours $minutes $secs
+}
+
 # Create a reports directory if it doesn't exist
 REPORTS_DIR="test_reports"
 mkdir -p "$REPORTS_DIR"
@@ -49,8 +58,8 @@ echo "" >> "$REPORT_MD"
 
 echo "## Test Results Summary" >> "$REPORT_MD"
 echo "" >> "$REPORT_MD"
-echo "| Tests | Passed | Failed | Errors | Skipped | Time (s) | Repository |" >> "$REPORT_MD"
-echo "|-------|--------|--------|--------|---------|----------|------------|" >> "$REPORT_MD"
+echo "| Tests | Passed | Failed | Errors | Skipped | Duration (s) | Repository |" >> "$REPORT_MD"
+echo "|-------|--------|--------|--------|---------|--------------|------------|" >> "$REPORT_MD"
 
 # Variables to store overall statistics
 OVERALL_TOTAL=0
@@ -98,13 +107,16 @@ for xml_file in $(find . -name "test_results.xml" -type f); do
     REPOS_ARRAY+=("$repo_dir,$total_tests,$passed,$failures,$errors,$skipped,$time")
 
     # Add to the summary table with proper spacing to match header
-    printf "| %-5s | %-6s | %-6s | %-6s | %-7s | %-8s | %-10s |\n" "$total_tests" "$passed" "$failures" "$errors" "$skipped" "$time" "$repo_dir" >> "$REPORT_MD"
+    printf "| %-5s | %-6s | %-6s | %-6s | %-7s | %-12s | %-10s |\n" "$total_tests" "$passed" "$failures" "$errors" "$skipped" "$time" "$repo_dir" >> "$REPORT_MD"
 done
 
 if [ $FOUND_XML_FILES -eq 0 ]; then
     echo "No test_results.xml files found" >> "$RUN_DIR/debug_report.txt"
     echo "| - | - | - | - | - | - | No test results found |" >> "$REPORT_MD"
 fi
+
+# Format the total duration in HH:MM:SS
+FORMATTED_DURATION=$(format_duration $(echo "$OVERALL_TIME" | bc))
 
 # Add overall statistics
 echo "" >> "$REPORT_MD"
@@ -117,7 +129,7 @@ echo "| Passed | $OVERALL_PASSED |" >> "$REPORT_MD"
 echo "| Failed | $OVERALL_FAILED |" >> "$REPORT_MD"
 echo "| Errors | $OVERALL_ERRORS |" >> "$REPORT_MD"
 echo "| Skipped | $OVERALL_SKIPPED |" >> "$REPORT_MD"
-echo "| Total Time | $OVERALL_TIME s |" >> "$REPORT_MD"
+echo "| Total Duration | $OVERALL_TIME s ($FORMATTED_DURATION) |" >> "$REPORT_MD"
 echo "| Repositories Tested | $FOUND_XML_FILES |" >> "$REPORT_MD"
 echo "" >> "$REPORT_MD"
 
@@ -129,8 +141,8 @@ if [ $RUN_INDEX -gt 1 ]; then
     if [ -n "$PREV_REPORTS" ] && [ -f "$PREV_REPORTS/repos_data.csv" ]; then
         echo "## Comparison with Previous Run (#$PREV_INDEX)" >> "$REPORT_MD"
         echo "" >> "$REPORT_MD"
-        echo "| Status | Tests Δ | Passed Δ | Failed Δ | Time Δ | Repository |" >> "$REPORT_MD"
-        echo "|------------|--------|---------|----------|----------|--------|" >> "$REPORT_MD"
+        echo "| Status | Tests Δ | Passed Δ | Failed Δ | Duration Δ | Repository |" >> "$REPORT_MD"
+        echo "|------------|--------|---------|----------|--------------|--------|" >> "$REPORT_MD"
 
         while IFS= read -r prev_line; do
             IFS=',' read -r prev_repo prev_total prev_passed prev_failed prev_errors prev_skipped prev_time <<< "$prev_line"
@@ -221,6 +233,14 @@ for xml_file in $(find . -name "test_results.xml" -type f); do
     time=$(grep -o 'time="[0-9.]*"' "$xml_file" | head -1 | sed 's/time="\([0-9.]*\)"/\1/')
     timestamp=$(grep -o 'timestamp="[^"]*"' "$xml_file" | head -1 | sed 's/timestamp="\([^"]*\)"/\1/')
 
+    # Format test duration if it's significant
+    if (( $(echo "$time > 60" | bc -l) )); then
+        formatted_time=$(format_duration $(echo "$time" | bc))
+        time_display="${time}s ($formatted_time)"
+    else
+        time_display="${time}s"
+    fi
+
     # Write details
     echo "### Summary" >> "$REPORT_MD"
     echo "" >> "$REPORT_MD"
@@ -230,14 +250,14 @@ for xml_file in $(find . -name "test_results.xml" -type f); do
     echo "- **Failed:** $failures" >> "$REPORT_MD"
     echo "- **Errors:** $errors" >> "$REPORT_MD"
     echo "- **Skipped:** $skipped" >> "$REPORT_MD"
-    echo "- **Time:** ${time}s" >> "$REPORT_MD"
+    echo "- **Duration:** $time_display" >> "$REPORT_MD"
     echo "" >> "$REPORT_MD"
 
     # Extract test cases
     echo "### Test Cases" >> "$REPORT_MD"
     echo "" >> "$REPORT_MD"
-    echo "| Result | Time (s) | Test |" >> "$REPORT_MD"
-    echo "|--------|----------|------|" >> "$REPORT_MD"
+    echo "| Result | Duration (s) | Test |" >> "$REPORT_MD"
+    echo "|--------|--------------|------|" >> "$REPORT_MD"
 
     # Use xmllint or grep to extract testcase information
     if command -v xmllint > /dev/null; then
@@ -258,7 +278,7 @@ for xml_file in $(find . -name "test_results.xml" -type f); do
             fi
 
             # Print with proper spacing - Test at the end
-            printf "| %-6s | %-8s | %-50s |\n" "$result" "$time" "$classname::$name" >> "$REPORT_MD"
+            printf "| %-6s | %-12s | %-50s |\n" "$result" "$time" "$classname::$name" >> "$REPORT_MD"
         done
     else
         # Fallback to basic grep and sed
@@ -277,7 +297,7 @@ for xml_file in $(find . -name "test_results.xml" -type f); do
             fi
 
             # Print with proper spacing - Test at the end
-            printf "| %-6s | %-8s | %-50s |\n" "$result" "$time" "$full_name" >> "$REPORT_MD"
+            printf "| %-6s | %-12s | %-50s |\n" "$result" "$time" "$full_name" >> "$REPORT_MD"
         done
     fi
 
@@ -340,7 +360,8 @@ cat > "$REPORT_JSON" << EOF
     "failed": $OVERALL_FAILED,
     "errors": $OVERALL_ERRORS,
     "skipped": $OVERALL_SKIPPED,
-    "time": $OVERALL_TIME
+    "duration": $OVERALL_TIME,
+    "formatted_duration": "$FORMATTED_DURATION"
   }
 }
 EOF
@@ -356,7 +377,8 @@ echo "Passed,$OVERALL_PASSED" >> "$REPORT_CSV"
 echo "Failed,$OVERALL_FAILED" >> "$REPORT_CSV"
 echo "Errors,$OVERALL_ERRORS" >> "$REPORT_CSV"
 echo "Skipped,$OVERALL_SKIPPED" >> "$REPORT_CSV"
-echo "Total Time,$OVERALL_TIME" >> "$REPORT_CSV"
+echo "Total Duration,$OVERALL_TIME" >> "$REPORT_CSV"
+echo "Formatted Duration,$FORMATTED_DURATION" >> "$REPORT_CSV"
 
 # Create/update the index file
 INDEX_FILE="$REPORTS_DIR/index.md"
@@ -427,6 +449,7 @@ cat > "$HTML_INDEX" << EOF
             <th>Tests</th>
             <th>Pass Rate</th>
             <th>Failed</th>
+            <th>Duration</th>
             <th>Actions</th>
             <th>Status</th>
         </tr>
@@ -443,6 +466,7 @@ for idx in $(seq $RUN_INDEX -1 1); do
         passed=$(jq -r '.summary.passed' "$run_dir/test_report_${idx}.json" 2>/dev/null)
         failed=$(jq -r '.summary.failed' "$run_dir/test_report_${idx}.json" 2>/dev/null)
         errors=$(jq -r '.summary.errors' "$run_dir/test_report_${idx}.json" 2>/dev/null)
+        duration=$(jq -r '.summary.formatted_duration // "N/A"' "$run_dir/test_report_${idx}.json" 2>/dev/null)
 
         # Calculate pass rate
         if [ "$total" != "null" ] && [ "$total" -gt 0 ]; then
@@ -485,6 +509,7 @@ for idx in $(seq $RUN_INDEX -1 1); do
             <td>${total}</td>
             <td>${pass_rate}%</td>
             <td>${total_issues}</td>
+            <td>${duration}</td>
             <td><a href="${rel_path}">View Report</a></td>
             <td class="${status_class}">${status}</td>
         </tr>
