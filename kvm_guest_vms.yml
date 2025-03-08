@@ -66,5 +66,9 @@
     username: "kenneth"
     uvprog: "uvprog2025"
   roles:
-    - role_load_uvprog2025
-    - role_pytest_reports
+    - { role: role_load_uvprog2025, tags: ['load'] }
+    - { role: role_pytest_reports, tags: ['reports', 'format', 'generate', 'consolidate'] }
+  post_tasks:
+    - name: Notify completion
+      debug:
+        msg: "Pytest report processing completed successfully"

@@ -129,7 +129,7 @@ if [ $RUN_INDEX -gt 1 ]; then
     if [ -n "$PREV_REPORTS" ] && [ -f "$PREV_REPORTS/repos_data.csv" ]; then
         echo "## Comparison with Previous Run (#$PREV_INDEX)" >> "$REPORT_MD"
         echo "" >> "$REPORT_MD"
-        echo "| Repository | Status | Tests Δ | Passed Δ | Failed Δ | Time Δ |" >> "$REPORT_MD"
+        echo "| Status | Tests Δ | Passed Δ | Failed Δ | Time Δ | Repository |" >> "$REPORT_MD"
         echo "|------------|--------|---------|----------|----------|--------|" >> "$REPORT_MD"
 
         while IFS= read -r prev_line; do

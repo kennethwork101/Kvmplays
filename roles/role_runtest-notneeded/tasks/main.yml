@@ -284,7 +284,7 @@
   args:
     chdir: "{{ user_home }}/{{ uvprog }}/{{ (item | basename | splitext)[0] }}"
     executable: /bin/bash
-  async: 1200
+  async: 7200
   poll: 0
   become: yes
   become_user: "{{ username }}"

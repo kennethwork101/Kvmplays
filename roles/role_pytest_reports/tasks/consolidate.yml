@@ -125,11 +125,16 @@
     all_reports: "{{ all_reports_string.split(',') | select('length') | list }}"
   when: all_reports_string is defined and all_reports_string != ''
 
-
 - name: Create full path from symlink target if it's a relative path
   set_fact:
     actual_report_path: "{{ user_home }}/{{ uvprog }}/{{ symlink_target[0] }}"
   when: symlink_target is defined and symlink_target|length > 0 and (symlink_target[0] | string) != '' and not (symlink_target[0] | string).startswith('/')
+
+# Add this new task to convert direct_path from list to string if needed
+- name: Set direct_path as string if it's a list
+  set_fact:
+    direct_path: "{{ direct_path[0] }}"
+  when: direct_path is defined and direct_path is sequence and direct_path | length > 0
 
 - name: Show extracted paths
   debug:
@@ -159,7 +164,7 @@
     flat: yes
   become: yes
   become_user: "{{ username }}"
-  when: resolved_path is defined and resolved_path | length > 0
+  when: resolved_path is defined and resolved_path | string | length > 0
   failed_when: false
 
 # Fetch from symlink path if available
@@ -170,7 +175,7 @@
     flat: yes
   become: yes
   become_user: "{{ username }}"
-  when: symlink_path is defined and symlink_path | length > 0
+  when: symlink_path is defined and symlink_path | string | length > 0
   failed_when: false
 
 # Fetch from direct path if available
@@ -181,7 +186,7 @@
     flat: yes
   become: yes
   become_user: "{{ username }}"
-  when: direct_path is defined and direct_path | length > 0
+  when: direct_path is defined and direct_path | string | length > 0
   failed_when: false
 
 - name: Show remote test_reports content
@@ -228,15 +233,17 @@
   become_user: "{{ username }}"
   failed_when: false
   when: symlink_target is defined and symlink_target|length > 0
-**Timestamp:** 2025-03-06T19:00:48.691429-08:00
+
+# Fetch test reports from guest VMs - using symlink as fallback
+- name: Fetch latest test reports from guest VMs (fallback)
   fetch:
-    src: "{{ user_home }}/{{ uvprog }}/{{ symlink_target }}"
+    src: "{{ user_home }}/{{ uvprog }}/test_reports/latest_report.md"
     dest: "{{ playbook_dir }}/test_reports/{{ inventory_hostname }}_test_report.md"
     flat: yes
   become: yes
   become_user: "{{ username }}"
-  when: symlink_target is defined and symlink_target | length > 0
-  failed_when: false
+  failed_when: false  # Continue even if missing
+  when: (not latest_report_exists.stat.exists | default(false)) or actual_report_path.stdout == ""
 
 # Fetch JSON reports if they exist
 - name: Fetch latest JSON reports from guest VMs
@@ -277,13 +284,30 @@
   delegate_to: localhost
   run_once: true
 
-# Get current timestamp for report naming
-- name: Get current timestamp
-  shell: date '+%Y%m%d_%H%M%S'
+# Get current timestamp for report naming using system timezone
+- name: Get current timestamp with system timezone
+  shell: date '+%Y%m%d_%H%M%S %Z'
   register: timestamp
   delegate_to: localhost
   run_once: true
   changed_when: false
+
+# Get ISO 8601 timestamp with system timezone for documentation
+- name: Get ISO 8601 timestamp with system timezone
+  shell: date -Iseconds
+  register: iso_timestamp
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+
+# Add timestamp to debug output for reference
+- name: Show timestamp information
+  debug:
+    msg:
+      - "Timestamp for file naming: {{ timestamp.stdout }}"
+      - "ISO 8601 Timestamp: {{ iso_timestamp.stdout }}"
+  delegate_to: localhost
+  run_once: true
 
 # Extra debug to make sure we're passing files to the consolidation script
 - name: Debug files to be passed to consolidation script
@@ -358,7 +382,7 @@
     # Find the most recent consolidated report
     latest_report=$(find {{ playbook_dir }}/consolidated_reports -name "consolidated_report.md" -type f | sort -r | head -1)
     if [ -n "$latest_report" ]; then
-      cp "$latest_report" "{{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout }}.md"
+      cp "$latest_report" "{{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout | replace(' ', '_') }}.md"
       echo "Copied to history: $latest_report"
     else
       echo "No consolidated report found"
@@ -406,7 +430,8 @@
 - name: Display report information
   shell: |
     echo "Current report: {{ playbook_dir }}/consolidated_report.md"
-    echo "Timestamped copy: {{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout }}.md"
+    echo "Timestamped copy: {{ playbook_dir }}/test_reports/history/consolidated_report_{{ timestamp.stdout | replace(' ', '_') }}.md"
+    echo "Generated at: {{ iso_timestamp.stdout }}"
     echo ""
     echo "Report history:"
     ls -1t {{ playbook_dir }}/test_reports/history/consolidated_report_*.md 2>/dev/null | head -10 | sed 's/^/- /'
