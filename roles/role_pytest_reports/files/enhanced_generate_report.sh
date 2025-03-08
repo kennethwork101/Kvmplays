@@ -253,6 +253,7 @@ for xml_file in $(find . -name "test_results.xml" -type f); do
     echo "- **Duration:** $time_display" >> "$REPORT_MD"
     echo "" >> "$REPORT_MD"
 
+
     # Extract test cases
     echo "### Test Cases" >> "$REPORT_MD"
     echo "" >> "$REPORT_MD"
